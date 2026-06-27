@@ -178,7 +178,7 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
           }
         });
 
-        const tipo = d[mapping.category] || d.tipo || 'ia_custom';
+        const tipo = 'ia_custom';
         let color = d.color || '#9C27B0';
         
         // Apply color graduation if a value is mapped
@@ -186,9 +186,9 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
           const val = parseFloat(d[mapping.value]);
           if (!isNaN(val) && maxVal > minVal) {
             const ratio = (val - minVal) / (maxVal - minVal);
-            // Hue from 240 (blue) to 0 (red) for a heatmap look
-            const hue = Math.round(240 * (1 - ratio));
-            color = `hsl(${hue}, 100%, 50%)`;
+            // Escala de blanco (luminosidad 95%) a rojo (luminosidad 50%)
+            const lightness = Math.round(95 - (ratio * 45));
+            color = `hsl(0, 100%, ${lightness}%)`;
           }
         }
 
@@ -246,7 +246,7 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
 
           aiPoints.forEach(p => {
             if (!next[p.tipo]) {
-              next[p.tipo] = { color: p.color || '#9C27B0', icon: 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
+              next[p.tipo] = { color: '#9C27B0', icon: 'fa-robot', nombre: 'Capa Generada (IA)', visible: true };
             } else {
               next[p.tipo].visible = true; // Asegurar que sea visible
             }
@@ -254,7 +254,7 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
           aiGeojsons.forEach(g => {
             const p = g.properties;
             if (!next[p.tipo]) {
-              next[p.tipo] = { color: p.color || '#9C27B0', icon: 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
+              next[p.tipo] = { color: '#9C27B0', icon: 'fa-robot', nombre: 'Capa Generada (IA)', visible: true };
             } else {
               next[p.tipo].visible = true;
             }
