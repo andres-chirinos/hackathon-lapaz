@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
 import { fetchDashboardData } from '../api';
+import {
+  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
+  LineElement, BarElement, Title, Tooltip, Legend, Filler
+} from 'chart.js';
+import { Bar, Line, Scatter } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler
+);
 
 export default function DashboardView({ dates, aiResult }) {
   const [data, setData] = useState(null);
@@ -63,12 +72,82 @@ export default function DashboardView({ dates, aiResult }) {
         </article>
       </section>
 
-      {aiResult?.resumen && (
+      {aiResult && (
         <div style={{ marginTop: '2rem' }}>
-          <div className="card" style={{ borderLeft: '4px solid var(--brand-blue)' }}>
-            <div className="card-header">Conclusión de la IA <i className="fa-solid fa-robot" style={{ color: 'var(--brand-blue)' }} /></div>
-            <div style={{ padding: 15, color: 'var(--text-primary)', lineHeight: 1.6 }}>{aiResult.resumen}</div>
+          {/* Instrucciones de Renderizado de la IA */}
+          <div className="card" style={{ borderLeft: '4px solid var(--brand-blue)', marginBottom: '2rem' }}>
+            <div className="card-header">Conclusión e Indicaciones de la IA <i className="fa-solid fa-robot" style={{ color: 'var(--brand-blue)' }} /></div>
+            <div style={{ padding: 15, color: 'var(--text-primary)', lineHeight: 1.6 }}>
+              <p><strong>Resumen Ejecutivo:</strong> {aiResult.resumen}</p>
+              {aiResult.column_mapping?.render_instructions && (
+                <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>
+                  <strong><i className="fa-solid fa-lightbulb" style={{ color: '#EAB308' }} /> Indicaciones de Renderizado:</strong> {aiResult.column_mapping.render_instructions}
+                </p>
+              )}
+              {aiResult.column_mapping?.types && (
+                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {Object.entries(aiResult.column_mapping.types).map(([col, type]) => (
+                    <span key={col} style={{ background: 'var(--bg-base)', padding: '0.2rem 0.6rem', borderRadius: 4, fontSize: '0.8rem', border: '1px solid var(--border-color)' }}>
+                      <strong>{col}:</strong> {type}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Gráficos Dinámicos */}
+          {aiResult.dashboard?.length > 0 && aiResult.data?.length > 0 && (
+            <div className="dashboard-grid">
+              {aiResult.dashboard.map((chart, idx) => {
+                // Preparar datos para Chart.js
+                if (chart.tipo === 'map') return null; // Mapas se ven en MapView
+                
+                const isLine = chart.tipo === 'line' || chart.tipo === 'area';
+                const ChartComponent = isLine ? Line : (chart.tipo === 'scatter' ? Scatter : Bar);
+                
+                const labels = aiResult.data.map(d => d[chart.x]);
+                const dataPoints = aiResult.data.map(d => d[chart.y]);
+
+                const chartData = {
+                  labels,
+                  datasets: [
+                    {
+                      label: chart.y,
+                      data: dataPoints,
+                      backgroundColor: 'rgba(0, 229, 255, 0.5)',
+                      borderColor: 'var(--brand-cyan)',
+                      borderWidth: 2,
+                      fill: chart.tipo === 'area',
+                      tension: 0.4
+                    }
+                  ]
+                };
+
+                const options = {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: chart.titulo, color: 'var(--text-primary)' }
+                  },
+                  scales: {
+                    x: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } },
+                    y: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } }
+                  }
+                };
+
+                return (
+                  <article className="card" key={idx} style={{ height: 400 }}>
+                    <div className="card-header">{chart.titulo}</div>
+                    <div style={{ flex: 1, position: 'relative', width: '100%' }}>
+                      <ChartComponent data={chartData} options={options} />
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </>

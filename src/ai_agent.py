@@ -10,6 +10,7 @@ from google import genai
 from google.genai import types
 import json
 
+
 class MockST:
     def write(self, *args, **kwargs): pass
     def status(self, *args, **kwargs): return self
@@ -17,6 +18,7 @@ class MockST:
     def __exit__(self, exc_type, exc_val, exc_tb): pass
     def update(self, *args, **kwargs): pass
     def code(self, *args, **kwargs): pass
+
 
 st = MockST()
 
@@ -102,6 +104,8 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         3. Haz al menos una consulta exploratoria con query_database.
         4. Responde con un JSON:
         {{
+            "info_suficiente": true | false, // Pon false si la pregunta es sobre datos que no existen en el esquema.
+            "razon_insuficiente": "Explicación de por qué no puedes responder (solo si info_suficiente es false)",
             "tablas_necesarias": ["lista de tablas que necesitas"],
             "variables_clave": ["lista de columnas importantes"],
             "reglas_agregacion": "resumen de las reglas de agregación que aplican según el knowledge base",
@@ -134,6 +138,17 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
             f"**Reglas:** {phase1_result.get('reglas_agregacion', 'N/A')}")
         s1.update(label="🔍 Fase 1: Completada", state="complete")
 
+    if not phase1_result.get("info_suficiente", True):
+        return {
+            "phases": phases,
+            "sql": "--",
+            "dashboard": [],
+            "resumen": phase1_result.get("razon_insuficiente", "No cuento con suficiente información en la base de datos para responder a esta pregunta."),
+            "explicacion": "Se activó el guardarraíl del sistema porque no hay datos relevantes para la solicitud.",
+            "data": [],
+            "column_mapping": {}
+        }
+
     # ═══════════════════════════════════════════════════════════════
     # PHASE 2 — Query Development
     # ═══════════════════════════════════════════════════════════════
@@ -158,9 +173,15 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         Si hay columnas de geometría, usa ST_AsText(geom) AS geometry.
         RESPETA las reglas de agregación de la Fase 1.
         
+        INSTRUCCIÓN CRÍTICA (TIEMPO Y ESPACIO):
+        Siempre que las tablas de origen contengan información de tiempo (ej. fecha) o ubicación (latitud, longitud, geometría), DEBES incluir esas columnas en tu SELECT final.
+        Manejo de Gran Volumen y Agrupación Espacial: Si agrupas (GROUP BY) por una dimensión espacial (como el nombre del municipio, departamento o macroregión) para no saturar el mapa, intenta hacer un JOIN con las tablas espaciales correspondientes (ej. `frontlines_municipios`, `frontlines_departamentos`, etc.) si es necesario, para extraer y retornar su geometría (`ST_AsText(geom) AS geometry`). De esta manera, el mapa renderizará los polígonos exactos. Si no es posible hacer el JOIN, DEBES incluir al menos el promedio de las coordenadas (ej. `AVG(latitud) AS latitud`, `AVG(longitud) AS longitud`) de los puntos agrupados. Si no haces ninguna de las dos cosas, el mapa fallará.
+        
         RESTRICCIONES IMPORTANTES DE DUCKDB Y ENTORNO:
-        1. DuckDB NO tiene la función `ST_Haversine`. Para calcular distancias entre puntos geográficos usa matemática trigonométrica estándar (RADIANS, SIN, COS, ACOS) o si las geometrías están disponibles usa `ST_Distance(geom1, geom2) * 111000` como aproximación. ¡NUNCA uses `ST_Haversine`!
-        2. UTILIZA SIEMPRE las variables globales de la aplicación proporcionadas en "Contexto del usuario". Si te preguntan "cerca de mi" o "hoy", inyecta literalmente las coordenadas (Latitud y Longitud) y la Fecha exacta que se te pasó en el Contexto del usuario, no inventes funciones de fecha (como GETDATE()) ni coordenadas arbitrarias.
+        1. DuckDB NO tiene la función `ST_Haversine`. Para calcular distancias usa matemática trigonométrica estándar o `ST_Distance(geom1, geom2) * 111000`.
+        2. UTILIZA SIEMPRE las variables globales de la aplicación proporcionadas en "Contexto del usuario". Inyecta literalmente las coordenadas y fecha exactas si es necesario.
+        3. En el caso de polígonos o líneas, la columna geometry debe estar en formato WKT.
+        
 
         Tienes acceso a `query_database` para probar fragmentos de SQL antes de armar la consulta final.
         
@@ -256,6 +277,19 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
                     "color": "columna_color (opcional, null si no aplica)"
                 }}
             ],
+            "column_mapping": {{
+                "lat": "nombre_columna_latitud_o_null",
+                "lon": "nombre_columna_longitud_o_null",
+                "geometry": "nombre_columna_geometria_wkt_o_null",
+                "label": "nombre_columna_titulo_marcador_o_null",
+                "value": "nombre_columna_valor_principal_o_null",
+                "category": "nombre_columna_categoria_o_null",
+                "types": {{
+                    "nombre_columna_1": "temporal | metrica | dimension_categorica | geo_lat | geo_lon | geometry_wkt",
+                    "nombre_columna_2": "..."
+                }},
+                "render_instructions": "Indicaciones breves sobre cómo interpretar o renderizar estos datos visualmente (ej. 'La variable X es temporal, ideal para un gráfico de líneas')."
+            }},
             "resumen_ejecutivo": "Un párrafo corto explicando qué revelan los datos al usuario."
         }}
         """
@@ -283,6 +317,7 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         "phases": phases,
         "sql": final_sql,
         "dashboard": p3.get("dashboard", []),
+        "column_mapping": p3.get("column_mapping", {}),
         "resumen": p3.get("resumen_ejecutivo", ""),
         "explicacion": explanation,
         "data": json.loads(result_df.to_json(orient='records', date_format='iso'))

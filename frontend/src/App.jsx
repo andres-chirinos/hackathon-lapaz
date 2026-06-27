@@ -44,6 +44,12 @@ export default function App() {
     if (result?.sql) setLastSql(result.sql);
   }, []);
 
+  const handleApplyCustomData = useCallback((customData) => {
+    setAiResult(customData);
+    if (customData?.sql) setLastSql(customData.sql);
+    setView('map');
+  }, []);
+
   return (
     <>
       <Header
@@ -80,7 +86,7 @@ export default function App() {
             )}
             {view === 'catalogo' && (
               <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
-                <CatalogoView />
+                <CatalogoView onApplyCustomData={handleApplyCustomData} />
               </div>
             )}
           </main>

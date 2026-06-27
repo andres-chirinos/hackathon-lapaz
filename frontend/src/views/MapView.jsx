@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, LayersControl, GeoJSON, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import wellknown from 'wellknown';
 import { fetchMapPoints } from '../api';
 
 const BOLIVIA_BOUNDS = [[-23.0, -70.0], [-9.0, -57.0]];
@@ -126,6 +127,7 @@ const DEFAULT_LAYERS = {
 export default function MapView({ dates, location, aiResult, municipioGeojson }) {
   const [points, setPoints] = useState([]);
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
+  const [aiGeojson, setAiGeojson] = useState([]);
 
   useEffect(() => {
     fetchMapPoints(dates.startDate, dates.endDate)
@@ -148,27 +150,72 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
   // Merge AI result points
   useEffect(() => {
     if (aiResult?.data?.length > 0) {
-      const aiPoints = aiResult.data.map(d => {
-        const lat = d.latitud || d.latitude || d.lat;
-        const lng = d.longitud || d.longitude || d.lon || d.lng;
-        if (!lat || !lng) return null;
+      const mapping = aiResult.column_mapping || {};
+      const aiPoints = [];
+      const aiGeojsons = [];
+
+      aiResult.data.forEach(d => {
         let desc = '';
         Object.keys(d).forEach(k => {
-          if (!['latitud','latitude','lat','longitud','longitude','lon','lng'].includes(k.toLowerCase())) {
+          if (!['latitud','latitude','lat','longitud','longitude','lon','lng', 'geometry'].includes(k.toLowerCase()) && k !== mapping.geometry) {
             desc += `<b>${k}:</b> ${d[k]}<br>`;
           }
         });
-        return {
-          lat: parseFloat(lat), lng: parseFloat(lng),
-          tipo: d.tipo || 'ia_custom', titulo: 'Resultado IA', desc,
-          color: d.color, icon: d.icon
-        };
-      }).filter(Boolean);
-      if (aiPoints.length > 0) {
+
+        const tipo = d[mapping.category] || d.tipo || 'ia_custom';
+        const color = d.color || '#9C27B0';
+        const icon = d.icon || 'fa-robot';
+
+        // 1. Handle WKT Geometry if present
+        if (mapping.geometry && d[mapping.geometry]) {
+          try {
+            const geojsonFeature = wellknown(d[mapping.geometry]);
+            if (geojsonFeature) {
+              geojsonFeature.properties = {
+                tipo,
+                titulo: d[mapping.label] || 'Capa IA',
+                desc,
+                color,
+                icon
+              };
+              aiGeojsons.push(geojsonFeature);
+              return; // Si es polígono/linea, no agregamos un punto suelto a menos que no tenga geometría
+            }
+          } catch (e) {
+            console.warn("Invalid WKT:", e);
+          }
+        }
+
+        // 2. Handle Point Data
+        const lat = d[mapping.lat] || d.latitud || d.latitude || d.lat;
+        const lng = d[mapping.lon] || d.longitud || d.longitude || d.lon || d.lng;
+        if (lat && lng) {
+          aiPoints.push({
+            lat: parseFloat(lat), lng: parseFloat(lng),
+            tipo, 
+            titulo: d[mapping.label] || 'Resultado IA', 
+            desc,
+            color, icon,
+            valor_ica: d[mapping.value]
+          });
+        }
+      });
+
+      if (aiPoints.length > 0 || aiGeojsons.length > 0) {
         setPoints(prev => [...prev, ...aiPoints]);
+        
+        // Save geojson data to state (need to create this state)
+        if (aiGeojsons.length > 0) {
+           setAiGeojson(prev => [...prev, ...aiGeojsons]);
+        }
+
         setLayers(prev => {
           const next = { ...prev };
           aiPoints.forEach(p => {
+            if (!next[p.tipo]) next[p.tipo] = { color: p.color || '#9C27B0', icon: 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
+          });
+          aiGeojsons.forEach(g => {
+            const p = g.properties;
             if (!next[p.tipo]) next[p.tipo] = { color: p.color || '#9C27B0', icon: 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
           });
           return next;
@@ -202,6 +249,19 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
           <Marker key={`${p.tipo}-${i}`} position={[p.lat, p.lng]} icon={createIcon(p)}>
             <Popup><b>{p.titulo}</b><br /><span dangerouslySetInnerHTML={{ __html: p.desc }} /></Popup>
           </Marker>
+        ))}
+
+        {aiGeojson.filter(g => layers[g.properties.tipo]?.visible !== false).map((geo, i) => (
+          <GeoJSON 
+            key={`geojson-${i}`} 
+            data={geo} 
+            style={{ color: geo.properties.color, weight: 3, opacity: 0.8, fillOpacity: 0.3 }}
+            onEachFeature={(f, layer) => {
+              if (f.properties?.desc) {
+                layer.bindPopup(`<b>${f.properties.titulo}</b><br>${f.properties.desc}`);
+              }
+            }}
+          />
         ))}
 
         <FitBounds points={visiblePoints} />

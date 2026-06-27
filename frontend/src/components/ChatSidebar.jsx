@@ -80,6 +80,21 @@ export default function ChatSidebar({ location, onResult, onOpenSql }) {
         <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
           <h3 style={{ marginBottom: '1rem', color: 'var(--brand-blue)', fontSize: '1rem' }}>Resultados</h3>
 
+          {result.phases && result.phases.length > 0 && (
+            <div style={{ marginBottom: '1rem', background: 'var(--bg-base)', padding: '0.8rem', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+              <h4 style={{ marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--brand-cyan)' }}>
+                <i className="fa-solid fa-brain" /> Cadena de Pensamiento
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {result.phases.map((p, i) => (
+                  <div key={i} style={{ fontSize: '0.8rem', paddingLeft: '0.5rem', borderLeft: '2px solid var(--border-color)' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>{p.name}:</strong> <span style={{ color: 'var(--text-secondary)' }}>{typeof p.thinking === 'object' ? JSON.stringify(p.thinking) : p.thinking}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={{
             backgroundColor: 'rgba(0, 86, 179, 0.1)', padding: '1rem',
             borderLeft: '4px solid var(--brand-blue)', borderRadius: 4, marginBottom: '1rem',
