@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuntur - Aplicación de Monitoreo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        /* Sistema de Diseño: 12 Variables CSS en :root */
+        :root {
+            --bg-base: #F8F9FA;
+            --bg-surface: #FFFFFF;
+            --text-primary: #212529;
+            --text-secondary: #6C757D;
+            --border-color: #E9ECEF;
+            --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            
+            --brand-blue: #0056B3;
+            --brand-cyan: #00E5FF;
+            --alert-critical: #EF4444; 
+            --alert-warning: #F97316; 
+            --alert-toxic: #9333EA; 
+            --alert-stable: #22C55E; 
+        }
+
+        [data-theme="dark"] {
+            --bg-base: #121212;
+            --bg-surface: #1E1E1E;
+            --text-primary: #F8F9FA;
+            --text-secondary: #A0AAB2;
+            --border-color: #2D333B;
+            --shadow-card: none;
+            --brand-blue: #3399FF; 
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); line-height: 1.5; }
+
+        /* Encabezado y Navegación */
+        header {
+            background-color: var(--bg-surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 2.5rem; }
+        .logo { display: flex; align-items: center; gap: 0.5rem; font-size: 1.5rem; font-weight: 700; color: var(--brand-blue); text-decoration: none; }
+        .logo i { color: var(--brand-cyan); font-size: 1.8rem; }
+
+        .main-nav { display: flex; gap: 1.5rem; }
+        .main-nav a { text-decoration: none; color: var(--text-secondary); font-weight: 600; font-size: 0.95rem; }
+        .main-nav a.active { color: var(--brand-blue); border-bottom: 2px solid var(--brand-blue); padding-bottom: 4px; }
+        .main-nav a:hover { color: var(--brand-blue); }
+
+        .controls { display: flex; align-items: center; gap: 1rem; }
+        .municipio-select {
+            padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+            background-color: var(--bg-base); color: var(--text-primary); font-weight: 600; cursor: pointer;
+        }
+        .theme-toggle { background: none; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer; }
+
+        main { max-width: 1200px; margin: 0 auto; padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+        /* Alerta Dinámica */
+        .alert-banner {
+            background-color: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--alert-critical);
+            padding: 1rem 1.5rem; border-radius: 8px; display: none; justify-content: space-between; align-items: center;
+        }
+        .alert-content { display: flex; align-items: center; gap: 1rem; color: var(--alert-critical); }
+        .alert-btn { background-color: var(--alert-critical); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; cursor: pointer; }
+
+        /* Dashboard */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+        .card {
+            background-color: var(--bg-surface); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 1.5rem; box-shadow: var(--shadow-card);
+            display: flex; flex-direction: column; gap: 1rem;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; }
+        .card-value { font-size: 2.5rem; font-weight: 700; color: var(--text-primary); }
+
+        /* SVG Gráficos */
+        .gauge-container { position: relative; width: 100%; height: 90px; display: flex; justify-content: center; overflow: hidden; }
+        .gauge-svg { width: 160px; height: 160px; }
+        .gauge-bg { fill: none; stroke: var(--border-color); stroke-width: 14; }
+        .gauge-val { fill: none; stroke: url(#aqi-gradient); stroke-width: 14; stroke-dasharray: 125.6; stroke-dashoffset: 20; stroke-linecap: round; }
+        .gauge-text { position: absolute; bottom: 0; font-size: 2rem; font-weight: bold; color: var(--text-primary); }
+        
+        .sparkline { width: 100%; height: 40px; margin-top: 5px; }
+        .sparkline path { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Lista de Bloqueos */
+        .blockade-list { list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
+        .blockade-list li { display: flex; align-items: center; gap: 0.8rem; font-size: 0.95rem; font-weight: 600; }
+        .blockade-list i { font-size: 1.2rem; color: var(--alert-critical); }
+
+        @media (max-width: 768px) {
+            header { flex-direction: column; gap: 1rem; }
+            .header-left { flex-direction: column; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-left">
+            <a href="#" class="logo">
+                <i class="ph-fill ph-paper-plane-tilt"></i> KUNTUR
+            </a>
+            <nav class="main-nav">
+                <a href="#principal" class="active">Principal</a>
+                <a href="#mapa">Mapa Interactivo</a>
+                <a href="#reportes">Reportes</a>
+            </nav>
+        </div>
+        <div class="controls">
+            <select class="municipio-select" id="municipio-select">
+                <option value="" disabled selected>Seleccione Municipio...</option>
+                </select>
+            <button class="theme-toggle" id="theme-btn">
+                <i class="ph ph-moon"></i>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="alert-banner" id="alert-banner">
+            <div class="alert-content">
+                <i class="ph-fill ph-warning-circle" style="font-size: 1.8rem;"></i>
+                <div>
+                    <strong>Alerta en su Zona</strong>
+                    <p id="alert-text">Evento crítico detectado cerca a su ubicación.</p>
+                </div>
+            </div>
+            <button class="alert-btn">Ver Detalles</button>
+        </section>
+
+        <section class="dashboard-grid">
+            
+            <article class="card">
+                <div class="card-header">
+                    Calidad del Aire
+                    <i class="ph ph-wind" style="color: var(--alert-toxic); font-size: 1.5rem;"></i>
+                </div>
+                <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 100 50">
+                        <defs>
+                            <linearGradient id="aqi-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#F97316" /> <stop offset="100%" stop-color="#9333EA" /> </linearGradient>
+                        </defs>
+                        <path class="gauge-bg" d="M 10 40 A 30 30 0 0 1 90 40" />
+                        <path class="gauge-val" d="M 10 40 A 30 30 0 0 1 90 40" />
+                    </svg>
+                    <div class="gauge-text">154</div>
+                </div>
+            </article>
+
+            <article class="card">
+                <div class="card-header">
+                    Actividad Sísmica
+                    <i class="ph ph-activity" style="color: var(--brand-cyan); font-size: 1.5rem;"></i>
+                </div>
+                <div class="card-value">2.4<span style="font-size: 1rem; color: var(--text-secondary);"> Mag</span></div>
+                <svg class="sparkline" viewBox="0 0 100 30">
+                    <path d="M0,25 L10,25 L15,10 L20,30 L25,5 L30,25 L100,25" stroke="var(--brand-cyan)" />
+                </svg>
+            </article>
+
+            <article class="card">
+                <div class="card-header">
+                    Temperatura
+                    <i class="ph ph-thermometer" style="color: var(--alert-warning); font-size: 1.5rem;"></i>
+                </div>
+                <div class="card-value">22°C</div>
+                <svg class="sparkline" viewBox="0 0 100 30">
+                    <path d="M0,25 Q 25,20 50,15 T 100,5" stroke="var(--alert-warning)" stroke-dasharray="4" />
+                </svg>
+            </article>
+
+            <article class="card">
+                <div class="card-header">
+                    Puntos de Bloqueo
+                    <i class="ph ph-barricade" style="color: var(--alert-critical); font-size: 1.5rem;"></i>
+                </div>
+                <ul class="blockade-list">
+                    <li><i class="ph-fill ph-traffic-signal" style="color: var(--alert-critical);"></i> Av. Blanco Galindo</li>
+                    <li><i class="ph-fill ph-traffic-signal" style="color: var(--alert-critical);"></i> Carretera a Oruro</li>
+                </ul>
+            </article>
+
+        </section>
+    </main>
+
+    <script>
+        // 1. Array comprensivo de municipios (Estructura optimizada)
+        const municipiosBolivia = {
+            "La Paz": ["La Paz", "El Alto", "Viacha", "Copacabana", "Caranavi", "Coroico", "Achacachi", "Mecapaca", "Palca", "Patacamaya"],
+            "Santa Cruz": ["Santa Cruz de la Sierra", "Montero", "Warnes", "Cotoca", "Samaipata", "San Ignacio de Velasco", "Yapacaní", "Camiri"],
+            "Cochabamba": ["Cochabamba", "Quillacollo", "Sacaba", "Tiquipaya", "Villa Tunari", "Punata", "Cliza", "Colcapirhua"],
+            "Oruro": ["Oruro", "Huanuni", "Challapata", "Caracollo", "Machacamarca"],
+            "Potosí": ["Potosí", "Uyuni", "Tupiza", "Villazón", "Llallagua", "Uncía"],
+            "Chuquisaca": ["Sucre", "Tarabuco", "Monteagudo", "Camargo", "Padilla"],
+            "Tarija": ["Tarija", "Yacuiba", "Bermejo", "Villamontes", "San Lorenzo"],
+            "Beni": ["Trinidad", "Riberalta", "Guayaramerín", "Rurrenabaque", "San Borja"],
+            "Pando": ["Cobija", "Porvenir", "Filadelfia", "Puerto Rico"]
+        };
+
+        const select = document.getElementById('municipio-select');
+        for (const [depto, munis] of Object.entries(municipiosBolivia)) {
+            const group = document.createElement('optgroup');
+            group.label = depto;
+            munis.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.toLowerCase().replace(/\s+/g, '-');
+                opt.textContent = m;
+                group.appendChild(opt);
+            });
+            select.appendChild(group);
+        }
+
+        // 2. Lógica de alertas geolocalizadas
+        const alertBanner = document.getElementById('alert-banner');
+        const alertText = document.getElementById('alert-text');
+        const zonasConAlerta = ['cochabamba', 'la-paz', 'el-alto', 'santa-cruz-de-la-sierra'];
+
+        select.addEventListener('change', (e) => {
+            if (zonasConAlerta.includes(e.target.value)) {
+                alertText.innerHTML = `Evento crítico detectado en la jurisdicción de <strong>${e.target.options[e.target.selectedIndex].text}</strong>.`;
+                alertBanner.style.display = 'flex';
+            } else {
+                alertBanner.style.display = 'none';
+            }
+        });
+
+        // 3. Tema Claro/Oscuro
+        document.getElementById('theme-btn').addEventListener('click', (e) => {
+            const html = document.documentElement;
+            const icon = e.currentTarget.querySelector('i');
+            if (html.getAttribute('data-theme') === 'light') {
+                html.setAttribute('data-theme', 'dark');
+                icon.className = 'ph ph-sun';
+            } else {
+                html.setAttribute('data-theme', 'light');
+                icon.className = 'ph ph-moon';
+            }
+        });
+    </script>
+</body>
+</html>
