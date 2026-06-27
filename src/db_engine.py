@@ -55,6 +55,8 @@ def load_datapackages(_conn):
                     _conn.execute(f"CREATE OR REPLACE VIEW {table_name} AS SELECT * FROM read_csv_auto('{path}')")
                 elif path.endswith('.geojson'):
                     _conn.execute(f"CREATE OR REPLACE VIEW {table_name} AS SELECT * FROM st_read('{path}')")
+                elif path.endswith('.parquet'):
+                    _conn.execute(f"CREATE OR REPLACE VIEW {table_name} AS SELECT * FROM read_parquet('{path}')")
                 else:
                     continue
 
