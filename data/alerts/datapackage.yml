@@ -1,0 +1,8 @@
+resources:
+  - name: senamhi_alerts
+    type: json
+    path: data/alerts/senamhi_alerts.geojson
+    scheme: file
+    format: geojson
+    mediatype: text/geojson
+    encoding: utf-8

@@ -1,0 +1,31 @@
+resources:
+  - name: Compilación de datos de calidad del aire de Bolivia
+    type: table
+    path: data/air_quality/air_quality.csv
+    scheme: file
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: fecha_hora_registro
+          type: datetime
+          description: Fecha y hora del registro
+        - name: lugar_nombre
+          type: string
+          description: Nombre del lugar
+        - name: latitude
+          type: number
+          description: Latitud del lugar
+        - name: longitude
+          type: number
+          description: Longitud del lugar
+        - name: valor_ica
+          type: number
+          description: Valor del Índice de Calidad del Aire (ICA)
+        - name: observaciones
+          type: string
+          description: Observaciones adicionales
+        - name: fuente
+          type: string
+          description: Fuente de los datos

@@ -1,0 +1,58 @@
+resources:
+  - name: senamhi_hidro_stations
+    type: table
+    path: data/hidrostations/senamhi_hidro_stations.csv
+    scheme: file
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: estacion
+          type: string
+        - name: longitud
+          type: number
+        - name: latitud
+          type: number
+        - name: altura
+          type: number
+        - name: Precipitación
+          type: number
+        - name: Temperatura Máxima
+          type: number
+        - name: Temperatura Mínima
+          type: number
+        - name: Nubosidad Diaria
+          type: any
+        - name: Nubosidad
+          type: any
+        - name: Temperatura Media
+          type: any
+        - name: Humedad Relativa Máxima
+          type: any
+        - name: Humedad Relativa Mínima
+          type: any
+        - name: Humedad Relativa Media
+          type: any
+        - name: Presion Media
+          type: any
+        - name: Velocidad de Viento Media
+          type: any
+        - name: Presion Máxima
+          type: any
+        - name: Presion Mínima
+          type: any
+        - name: Velocidad de Viento Máxima
+          type: any
+        - name: Velocidad de Viento Mínima
+          type: any
+        - name: Direccion de Viento Media
+          type: any
+        - name: Direccion de Viento Máxima
+          type: any
+        - name: Direccion de Viento Mínima
+          type: any
+        - name: Direccion y Velocidad de Viento Predominante
+          type: any
+        - name: fecha_hora_registro
+          type: datetime

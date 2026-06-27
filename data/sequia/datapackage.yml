@@ -1,0 +1,52 @@
+resources:
+  - name: senamhi_sequias
+    type: table
+    path: data/sequia/senamhi_sequias.csv
+    scheme: file
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: date
+          type: yearmonth
+        - name: lev_0
+          type: number
+          description: "Humedad en porcentaje"
+        - name: lev_1
+          type: number
+          description: "Sequia Debil %"
+        - name: lev_2
+          type: number
+          description: "Sequia Moderada %"
+        - name: lev_3
+          type: number
+          description: "Sequia Severa %"
+        - name: lev_4
+          type: number
+          description: "Sequia Extrema %"
+        - name: region
+          type: string
+          description: "Macroregion del pais"
+        - name: fecha_hora_registro
+          type: datetime
+          description: "Fecha de registro"
+
+  - name: macroregiones
+    type: json
+    path: data/sequia/dataset.geojson
+    scheme: file
+    format: geojson
+    mediatype: text/geojson
+    encoding: utf-8
+    schema:
+      fields:
+        - name: MACROREG
+          type: string
+          description: "Macroregion del pais"
+        - name: X
+          type: number
+          description: "Coordenada X"
+        - name: Y
+          type: number
+          description: "Coordenada Y"
