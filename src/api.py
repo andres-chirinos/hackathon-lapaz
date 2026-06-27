@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from src.db_engine import get_connection, load_datapackages
 from src.ai_agent import run_agent
 from src.knowledge_loader import build_vector_store
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from datetime import datetime
 import json
 
@@ -55,15 +57,15 @@ def get_dashboard_data():
     """
     try:
         # Latest AQI (average of latest day)
-        aqi_res = conn.execute("SELECT AVG(aqi) as avg_aqi FROM air_quality_air_quality").fetchone()
+        aqi_res = conn.execute("SELECT AVG(valor_ica) as avg_aqi FROM air_quality_air_quality").fetchone()
         avg_aqi = round(aqi_res[0], 1) if aqi_res and aqi_res[0] else 0
 
         # Latest Seismic Event
-        seismic_res = conn.execute("SELECT mag FROM sismology_sismology ORDER BY timestamp DESC LIMIT 1").fetchone()
+        seismic_res = conn.execute("SELECT magnitud FROM sismology_sismology ORDER BY fecha_hora_registro DESC LIMIT 1").fetchone()
         last_mag = round(seismic_res[0], 1) if seismic_res and seismic_res[0] else 0
 
         # Active Blockades count (Transitability)
-        blockades_res = conn.execute("SELECT COUNT(*) FROM transitability_events WHERE Estado_del_Sector LIKE '%TRANSITABLE CON DESVÍOS%' OR Estado_del_Sector LIKE '%NO TRANSITABLE%'").fetchone()
+        blockades_res = conn.execute("SELECT COUNT(*) FROM transitability_events WHERE UPPER(estado) LIKE '%TRANSITABLE CON DESVÍOS%' OR UPPER(estado) LIKE '%NO TRANSITABLE%'").fetchone()
         blockades_count = blockades_res[0] if blockades_res else 0
 
         return {
@@ -87,42 +89,42 @@ def get_map_points():
     
     # 1. Air Quality
     try:
-        aq_df = conn.execute("SELECT latitude, longitude, aqi, timestamp FROM air_quality_air_quality WHERE latitude IS NOT NULL AND longitude IS NOT NULL LIMIT 50").df()
+        aq_df = conn.execute("SELECT latitude, longitude, valor_ica, fecha_hora_registro FROM air_quality_air_quality WHERE latitude IS NOT NULL AND longitude IS NOT NULL LIMIT 50").df()
         for _, row in aq_df.iterrows():
             points.append({
                 "lat": float(row['latitude']),
                 "lng": float(row['longitude']),
                 "tipo": "aire",
                 "titulo": "Calidad del Aire",
-                "desc": f"AQI: {row['aqi']} (Generado: {row['timestamp']})"
+                "desc": f"ICA: {row['valor_ica']} (Generado: {row['fecha_hora_registro']})"
             })
     except Exception as e:
         print(f"Error loading air quality: {e}")
 
     # 2. Sismology
     try:
-        sis_df = conn.execute("SELECT latitude, longitude, mag, depth, timestamp FROM sismology_sismology WHERE latitude IS NOT NULL AND longitude IS NOT NULL LIMIT 50").df()
+        sis_df = conn.execute("SELECT latitud, longitud, magnitud, profundidad, fecha_hora_registro FROM sismology_sismology WHERE latitud IS NOT NULL AND longitud IS NOT NULL LIMIT 50").df()
         for _, row in sis_df.iterrows():
             points.append({
-                "lat": float(row['latitude']),
-                "lng": float(row['longitude']),
+                "lat": float(row['latitud']),
+                "lng": float(row['longitud']),
                 "tipo": "sismo",
-                "titulo": f"Sismo Mag {row['mag']}",
-                "desc": f"Profundidad: {row['depth']} km<br>Fecha: {row['timestamp']}"
+                "titulo": f"Sismo Mag {row['magnitud']}",
+                "desc": f"Profundidad: {row['profundidad']} km<br>Fecha: {row['fecha_hora_registro']}"
             })
     except Exception as e:
         print(f"Error loading sismology: {e}")
 
     # 3. Blockades (Transitability)
     try:
-        trans_df = conn.execute("SELECT Latitud, Longitud, Estado_del_Sector, Motivo, Resumen FROM transitability_events WHERE Latitud IS NOT NULL AND Longitud IS NOT NULL AND Estado_del_Sector NOT LIKE '%TRANSITABLE%'").df()
+        trans_df = conn.execute("SELECT latitud, longitud, estado, evento, sección FROM transitability_events WHERE latitud IS NOT NULL AND longitud IS NOT NULL AND UPPER(estado) NOT LIKE '%TRANSITABLE%'").df()
         for _, row in trans_df.iterrows():
             points.append({
-                "lat": float(row['Latitud']),
-                "lng": float(row['Longitud']),
+                "lat": float(row['latitud']),
+                "lng": float(row['longitud']),
                 "tipo": "bloqueo",
-                "titulo": str(row['Estado_del_Sector']),
-                "desc": str(row['Resumen'])
+                "titulo": str(row['estado']),
+                "desc": f"{row['evento']} en {row['sección']}"
             })
     except Exception as e:
         print(f"Error loading transitability: {e}")
@@ -149,3 +151,11 @@ def chat_with_agent(q: ChatQuery):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Mount frontend directory for static files
+app.mount("/css", StaticFiles(directory="frontend/css"), name="css")
+app.mount("/js", StaticFiles(directory="frontend/js"), name="js")
+
+@app.get("/")
+def read_index():
+    return FileResponse("frontend/index.html")

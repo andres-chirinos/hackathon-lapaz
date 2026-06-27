@@ -1,0 +1,18 @@
+resources:
+  - name: municipios
+    type: table
+    path: data/frontlines/municipios.geojson
+    scheme: file
+    format: geojson
+    mediatype: application/geo+json
+    schema:
+      fields:
+        - name: id
+          type: string
+          description: "Identificador único o código del municipio"
+        - name: nombre
+          type: string
+          description: "Nombre oficial del municipio"
+        - name: geom
+          type: geometry
+          description: "Polígono o multi-polígono espacial (fronteras/límites del municipio)"

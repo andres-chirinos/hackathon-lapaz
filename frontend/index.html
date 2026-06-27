@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuntur - Aplicación de Monitoreo</title>
+    
+    <!-- Fonts and Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Application CSS -->
+    <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+
+    <header>
+        <div class="header-left">
+            <a href="#" class="logo">
+                <i class="ph-fill ph-paper-plane-tilt"></i> KUNTUR
+            </a>
+            <nav class="main-nav">
+                <a class="active" onclick="window.showView('principal', event)">Principal</a>
+                <a onclick="window.showView('mapa', event)">Mapa Interactivo</a>
+            </nav>
+        </div>
+        <div class="controls">
+            <select class="municipio-select" id="municipio-select">
+                <option value="" disabled selected>Seleccione Municipio...</option>
+            </select>
+            <button class="theme-toggle" id="theme-btn">
+                <i class="ph ph-moon"></i>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="alert-banner" id="alert-banner">
+            <div class="alert-content">
+                <i class="ph-fill ph-warning-circle" style="font-size: 1.8rem;"></i>
+                <div>
+                    <strong>Alerta en su Zona</strong>
+                    <p id="alert-text">Evento crítico detectado cerca a su ubicación.</p>
+                </div>
+            </div>
+            <button class="alert-btn">Ver Detalles</button>
+        </section>
+
+        <!-- View: Principal -->
+        <div id="view-principal" class="view-section active">
+            <section class="dashboard-grid">
+                <article class="card">
+                    <div class="card-header">
+                        Calidad del Aire (AQI)
+                        <i class="ph ph-wind" style="color: var(--alert-toxic); font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="gauge-container">
+                        <svg class="gauge-svg" viewBox="0 0 100 50">
+                            <defs>
+                                <linearGradient id="aqi-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stop-color="#22C55E" /> 
+                                    <stop offset="50%" stop-color="#F97316" /> 
+                                    <stop offset="100%" stop-color="#9333EA" /> 
+                                </linearGradient>
+                            </defs>
+                            <path class="gauge-bg" d="M 10 40 A 30 30 0 0 1 90 40" />
+                            <path class="gauge-val" id="gauge-val-path" d="M 10 40 A 30 30 0 0 1 90 40" />
+                        </svg>
+                        <div class="gauge-text" id="dashboard-aqi">--</div>
+                    </div>
+                </article>
+
+                <article class="card">
+                    <div class="card-header">
+                        Último Sismo
+                        <i class="ph ph-activity" style="color: var(--brand-cyan); font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="card-value"><span id="dashboard-seismic">--</span><span style="font-size: 1rem; color: var(--text-secondary);"> Mag</span></div>
+                    <svg class="sparkline" viewBox="0 0 100 30">
+                        <path d="M0,25 L10,25 L15,10 L20,30 L25,5 L30,25 L100,25" stroke="var(--brand-cyan)" />
+                    </svg>
+                </article>
+
+                <article class="card">
+                    <div class="card-header">
+                        Puntos de Bloqueo
+                        <i class="ph ph-barricade" style="color: var(--alert-critical); font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="card-value" id="dashboard-blockades">--</div>
+                    <ul class="blockade-list" id="blockade-list-details">
+                        <!-- Populated by JS -->
+                    </ul>
+                </article>
+            </section>
+        </div>
+
+        <!-- View: Mapa Interactivo -->
+        <div id="view-mapa" class="view-section">
+            <div id="map"></div>
+        </div>
+
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Application JS (type="module") -->
+    <script type="module" src="./js/app.js"></script>
+</body>
+</html>
