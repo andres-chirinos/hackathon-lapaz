@@ -2,8 +2,27 @@ export let map;
 export let categorias;
 
 export function initMap() {
-    map = L.map('map').setView([-16.5000, -68.1193], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {}).addTo(map);
+    if (map !== undefined && map !== null) {
+        map.remove();
+    }
+    
+    const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB', className: 'map-invertible' });
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', className: 'map-invertible' });
+    const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '&copy; Esri' });
+
+    map = L.map('map', {
+        center: [-16.5000, -68.1193],
+        zoom: 14,
+        layers: [cartoPositron]
+    });
+
+    const baseMaps = {
+        "Carto (Claro)": cartoPositron,
+        "OpenStreetMap": osm,
+        "Satélite": sat
+    };
+    
+    L.control.layers(baseMaps, null, {position: 'topleft'}).addTo(map);
 
     categorias = {
         fuego: { color: '#FF0000', icon: 'fa-fire', nombre: 'Incendio', capa: L.layerGroup().addTo(map) },

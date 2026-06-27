@@ -24,86 +24,112 @@
                 <i class="ph-fill ph-paper-plane-tilt"></i> KUNTUR
             </a>
             <nav class="main-nav">
-                <a class="active" onclick="window.showView('principal', event)">Principal</a>
-                <a onclick="window.showView('mapa', event)">Mapa Interactivo</a>
+                <a class="active" onclick="window.showView('dashboard', event)">Principal</a>
+                <a onclick="window.showView('map', event)">Mapa Interactivo</a>
             </nav>
         </div>
         <div class="controls">
-            <select class="municipio-select" id="municipio-select">
-                <option value="" disabled selected>Seleccione Municipio...</option>
-            </select>
+            <input type="date" id="date-select" class="municipio-select" />
+            
+            <div class="custom-dropdown" id="muni-dropdown-container" style="position: relative; display: inline-block;">
+                <input type="text" id="muni-search-input" class="municipio-select" placeholder="Buscar Municipio..." autocomplete="off" />
+                <div class="dropdown-list" id="muni-list-container" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 0.5rem; overflow: hidden;">
+                    <ul id="muni-list" style="list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto;">
+                        <li style="padding: 0.8rem; text-align: center; color: var(--text-secondary);">Cargando...</li>
+                    </ul>
+                    <div class="dropdown-pagination" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-top: 1px solid var(--border-color); background: var(--bg-base); font-size: 0.9rem;">
+                        <button id="muni-prev" style="background: none; border: none; cursor: pointer; color: var(--brand-blue); font-weight: bold;">&lt; Ant</button>
+                        <span id="muni-page" style="color: var(--text-secondary);">1 / 1</span>
+                        <button id="muni-next" style="background: none; border: none; cursor: pointer; color: var(--brand-blue); font-weight: bold;">Sig &gt;</button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="gps-btn" class="theme-toggle" title="Mi Ubicación">
+                <i class="ph ph-crosshair"></i>
+            </button>
             <button class="theme-toggle" id="theme-btn">
                 <i class="ph ph-moon"></i>
             </button>
         </div>
     </header>
 
-    <main>
-        <section class="alert-banner" id="alert-banner">
-            <div class="alert-content">
-                <i class="ph-fill ph-warning-circle" style="font-size: 1.8rem;"></i>
-                <div>
-                    <strong>Alerta en su Zona</strong>
-                    <p id="alert-text">Evento crítico detectado cerca a su ubicación.</p>
+    <div id="app-layout" style="display: flex; width: 100%; height: calc(100vh - 85px);">
+        
+        <!-- Left: Main Views (Dashboard/Map) -->
+        <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="padding: 1rem 2rem 0 2rem; width: 100%;">
+                <!-- Alerts Banner -->
+                <div class="alert-banner" id="alert-banner" style="display: none; align-items: center; gap: 1rem;">
+                    <i class="ph-fill ph-warning-circle" style="font-size: 1.5rem; color: var(--alert-critical);"></i>
+                    <div>
+                        <strong>Alerta en su Zona</strong><br>
+                        <span id="alert-text">Ubicación detectada</span>
+                    </div>
+                    <div id="alerts-details" style="font-size: 0.9rem; color: var(--alert-critical); font-weight: 500; margin-left: 1rem;">
+                    </div>
+                    <button id="btn-main-details" class="theme-toggle" style="background: var(--alert-critical); color: white; border-radius: 4px; padding: 0.2rem 1rem; border: none; font-weight: bold; margin-left: auto;">
+                        Ver Detalles
+                    </button>
                 </div>
             </div>
-            <button class="alert-btn">Ver Detalles</button>
-        </section>
-
-        <!-- View: Principal -->
-        <div id="view-principal" class="view-section active">
-            <section class="dashboard-grid">
-                <article class="card">
-                    <div class="card-header">
-                        Calidad del Aire (AQI)
-                        <i class="ph ph-wind" style="color: var(--alert-toxic); font-size: 1.5rem;"></i>
-                    </div>
-                    <div class="gauge-container">
-                        <svg class="gauge-svg" viewBox="0 0 100 50">
-                            <defs>
-                                <linearGradient id="aqi-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stop-color="#22C55E" /> 
-                                    <stop offset="50%" stop-color="#F97316" /> 
-                                    <stop offset="100%" stop-color="#9333EA" /> 
-                                </linearGradient>
-                            </defs>
-                            <path class="gauge-bg" d="M 10 40 A 30 30 0 0 1 90 40" />
-                            <path class="gauge-val" id="gauge-val-path" d="M 10 40 A 30 30 0 0 1 90 40" />
-                        </svg>
-                        <div class="gauge-text" id="dashboard-aqi">--</div>
-                    </div>
-                </article>
-
-                <article class="card">
-                    <div class="card-header">
-                        Último Sismo
-                        <i class="ph ph-activity" style="color: var(--brand-cyan); font-size: 1.5rem;"></i>
-                    </div>
-                    <div class="card-value"><span id="dashboard-seismic">--</span><span style="font-size: 1rem; color: var(--text-secondary);"> Mag</span></div>
-                    <svg class="sparkline" viewBox="0 0 100 30">
-                        <path d="M0,25 L10,25 L15,10 L20,30 L25,5 L30,25 L100,25" stroke="var(--brand-cyan)" />
-                    </svg>
-                </article>
-
-                <article class="card">
-                    <div class="card-header">
-                        Puntos de Bloqueo
-                        <i class="ph ph-barricade" style="color: var(--alert-critical); font-size: 1.5rem;"></i>
-                    </div>
-                    <div class="card-value" id="dashboard-blockades">--</div>
-                    <ul class="blockade-list" id="blockade-list-details">
-                        <!-- Populated by JS -->
-                    </ul>
-                </article>
-            </section>
+            
+            <main id="main-content" style="padding: 1rem 2rem; flex: 1; overflow-y: auto; display: flex; flex-direction: column; width: 100%;">
+            </main>
         </div>
 
-        <!-- View: Mapa Interactivo -->
-        <div id="view-mapa" class="view-section">
-            <div id="map"></div>
-        </div>
+        <!-- Right: Chat Sidebar -->
+        <aside id="chat-sidebar" style="width: 380px; border-left: 1px solid var(--border-color); background: var(--bg-surface); padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;">
+            <div class="card-header" style="font-size: 1.1rem;">
+                Asistente IA
+                <i class="ph ph-robot" style="color: var(--brand-blue); font-size: 1.5rem;"></i>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 0.5rem;">
+                <textarea id="chat-input" rows="4" placeholder="Ej: ¿Cuál es la tendencia del ICA por estación en los últimos meses?" style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-primary); font-family: 'Inter', sans-serif; resize: vertical;"></textarea>
+                <button id="chat-btn" style="background-color: var(--brand-blue); color: white; border: none; padding: 0.8rem; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+                    <i class="ph ph-paper-plane-right"></i> Analizar
+                </button>
+            </div>
+            
+            <div id="chat-loading" style="display: none; margin-top: 1rem; text-align: center; color: var(--text-secondary);">
+                <i class="ph ph-spinner ph-spin" style="font-size: 2rem;"></i>
+                <p style="margin-top: 0.5rem; font-size: 0.9rem;">Analizando datos...</p>
+            </div>
 
-    </main>
+            <div id="chat-results" style="display: none; margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--brand-blue); font-size: 1rem;">Resultados</h3>
+                
+                <div id="chat-resumen" style="background-color: rgba(0, 86, 179, 0.1); padding: 1rem; border-left: 4px solid var(--brand-blue); border-radius: 4px; margin-bottom: 1rem; font-weight: 600; font-size: 0.9rem;">
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem; font-size: 0.9rem;">Explicación Técnica:</h4>
+                    <p id="chat-explicacion" style="color: var(--text-secondary); font-size: 0.85rem;"></p>
+                </div>
+
+                <div>
+                    <h4 style="margin-bottom: 0.5rem; font-size: 0.9rem;">Consulta SQL Generada:</h4>
+                    <pre style="background-color: var(--bg-base); padding: 0.8rem; border-radius: 8px; overflow-x: auto; font-family: monospace; border: 1px solid var(--border-color); font-size: 0.75rem;"><code id="chat-sql"></code></pre>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modal for Alert Details -->
+    <div id="alert-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center;">
+        <div style="background: var(--bg-surface); padding: 2rem; border-radius: 12px; max-width: 600px; width: 90%; border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+            <h2 id="modal-title" style="color: var(--alert-critical); display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
+                <i class="ph-fill ph-warning"></i> Detalles de Alerta
+            </h2>
+            <div id="modal-content" style="margin: 1.5rem 0; color: var(--text-primary); line-height: 1.6; max-height: 400px; overflow-y: auto;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <button id="modal-close" style="background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-weight: bold;">Cerrar</button>
+                <button id="modal-view-map" style="background: var(--brand-cyan); color: #000; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; border: none; font-weight: bold;">Ver Polígono en Mapa</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

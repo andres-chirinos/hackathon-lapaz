@@ -1,0 +1,43 @@
+<section class="dashboard-grid">
+    <article class="card">
+        <div class="card-header">
+            Calidad del Aire (AQI)
+            <i class="ph ph-wind" style="color: var(--alert-toxic); font-size: 1.5rem;"></i>
+        </div>
+        <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 100 50">
+                <defs>
+                    <linearGradient id="aqi-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#22C55E" /> 
+                        <stop offset="50%" stop-color="#F97316" /> 
+                        <stop offset="100%" stop-color="#9333EA" /> 
+                    </linearGradient>
+                </defs>
+                <path class="gauge-bg" d="M 10 40 A 30 30 0 0 1 90 40" />
+                <path class="gauge-val" id="gauge-val-path" d="M 10 40 A 30 30 0 0 1 90 40" />
+            </svg>
+            <div class="gauge-text" id="dashboard-aqi">--</div>
+        </div>
+    </article>
+
+    <article class="card">
+        <div class="card-header">
+            Último Sismo
+            <i class="ph ph-activity" style="color: var(--brand-cyan); font-size: 1.5rem;"></i>
+        </div>
+        <div class="card-value"><span id="dashboard-seismic">--</span><span style="font-size: 1rem; color: var(--text-secondary);"> Mag</span></div>
+        <svg class="sparkline" viewBox="0 0 100 30">
+            <path d="M0,25 L10,25 L15,10 L20,30 L25,5 L30,25 L100,25" stroke="var(--brand-cyan)" />
+        </svg>
+    </article>
+
+    <article class="card">
+        <div class="card-header">
+            Puntos de Bloqueo Activos
+            <i class="ph ph-barricade" style="color: var(--alert-critical); font-size: 1.5rem;"></i>
+        </div>
+        <div class="card-value" id="dashboard-blockades">--</div>
+        <ul class="blockade-list" id="blockade-list-details">
+        </ul>
+    </article>
+</section>
