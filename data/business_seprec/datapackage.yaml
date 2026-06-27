@@ -1,0 +1,111 @@
+resources:
+  - name: business
+    type: table
+    path: data/business_seprec/business.parquet
+    scheme: file
+    format: parquet
+    mediatype: application/parquet
+    schema:
+      fields:
+        - name: empresa_id
+          type: integer
+          description: "ID interno identificador de la empresa"
+        - name: establecimiento_id
+          type: integer
+          description: "ID del establecimiento comercial"
+        - name: estado
+          type: string
+          description: "Estado operativo de la empresa (ej. ACTIVO, CANCELADO)"
+        - name: id
+          type: integer
+          description: "ID del registro"
+        - name: nit
+          type: integer
+          description: "Número de Identificación Tributaria (NIT)"
+        - name: matricula
+          type: integer
+          description: "Número de Matrícula de Comercio"
+        - name: matriculaAnterior
+          type: integer
+          description: "Número de matrícula anterior (si aplica)"
+        - name: razonSocial
+          type: string
+          description: "Nombre o razón social de la empresa"
+        - name: codTipoUnidadEconomica_id
+          type: integer
+          description: "ID del tipo societario o unidad económica"
+        - name: codTipoUnidadEconomica_nombre
+          type: string
+          description: "Tipo de organización (ej. EMPRESA UNIPERSONAL, SOCIEDAD ANONIMA)"
+        - name: mesCierreGestion
+          type: integer
+          description: "Mes de cierre de gestión fiscal de la empresa"
+        - name: ultimoAnioActualizacion
+          type: integer
+          description: "Último año en el que la empresa actualizó su matrícula"
+        - name: objetos_sociales
+          type: array
+          description: "Detalle de las actividades económicas y objeto social de la empresa"
+        - name: codEstadoActualizacion_id
+          type: integer
+          description: "ID del estado de la actualización"
+        - name: codEstadoActualizacion_nombre
+          type: string
+          description: "Estado de la matrícula (ej. MATRICULA RENOVADA)"
+        - name: direccion_id
+          type: integer
+          description: "ID de la dirección registrada"
+        - name: direccion_nombreVia
+          type: string
+          description: "Nombre de la calle o avenida de la empresa"
+        - name: direccion_numeroDomicilio
+          type: string
+          description: "Número de puerta del domicilio"
+        - name: direccion_edificio
+          type: string
+          description: "Nombre del edificio (si aplica)"
+        - name: direccion_piso
+          type: string
+          description: "Número o nivel de piso (si aplica)"
+        - name: direccion_latitud
+          type: number
+          description: "Latitud geográfica de la dirección de la empresa"
+        - name: direccion_longitud
+          type: number
+          description: "Longitud geográfica de la dirección de la empresa"
+        - name: direccion_codDepartamento_id
+          type: number
+          description: "ID del departamento"
+        - name: direccion_codDepartamento_nombre
+          type: string
+          description: "Nombre del departamento (ej. LA PAZ, SANTA CRUZ)"
+        - name: direccion_codProvincia_id
+          type: number
+          description: "ID de la provincia"
+        - name: direccion_codProvincia_nombre
+          type: string
+          description: "Nombre de la provincia"
+        - name: direccion_codMunicipio_id
+          type: number
+          description: "ID del municipio"
+        - name: direccion_codMunicipio_nombre
+          type: string
+          description: "Nombre del municipio"
+        - name: direccion_codTipoVia_nombre
+          type: string
+          description: "Tipo de vía (ej. Avenida, Calle, Pasaje)"
+        - name: contactos
+          type: array
+          description: "Arreglo con medios de contacto como correo electrónico y teléfonos"
+        - name: direccion_codDepartamento
+          type: number
+          description: "Código auxiliar del departamento"
+        - name: direccion_codProvincia
+          type: number
+          description: "Código auxiliar de la provincia"
+        - name: direccion_codMunicipio
+          type: number
+          description: "Código auxiliar del municipio"
+        - name: direccion_codTipoVia
+          type: number
+          description: "Código auxiliar del tipo de vía"

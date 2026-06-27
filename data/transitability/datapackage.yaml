@@ -1,0 +1,55 @@
+resources:
+  - name: events
+    type: table
+    path: data/transitability/events.csv
+    scheme: file
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: fecha_consulta
+          type: datetime
+          description: "Fecha y hora en la que se consultó o registró el dato en el sistema"
+        - name: fecha_reporte
+          type: datetime
+          description: "Fecha y hora en la que se reportó el evento o estado"
+        - name: fecha_fin
+          type: datetime
+          description: "Fecha y hora estimada de finalización del evento o restricción"
+        - name: latitud
+          type: number
+          description: "Latitud geográfica del tramo o evento"
+        - name: longitud
+          type: number
+          description: "Longitud geográfica del tramo o evento"
+        - name: estado
+          type: string
+          description: "Estado general de transitabilidad (ej. no transitable por conflictos sociales)"
+        - name: sección
+          type: string
+          description: "Nombre del tramo o sección de la carretera (ej. cr. rt. 1265 - pumazani)"
+        - name: evento
+          type: string
+          description: "Tipo de evento que afecta la vía (ej. derrumbe, accidente, ningun evento)"
+        - name: clima
+          type: string
+          description: "Condiciones climáticas reportadas en el sector (ej. despejado)"
+        - name: horario_de_corte
+          type: string
+          description: "Horario en el que la vía permanece cortada al tránsito"
+        - name: tipo_de_carretera
+          type: string
+          description: "Tipo de superficie o material de la vía (ej. tierra o ripio)"
+        - name: alternativa_de_circulación_o_desvios
+          type: string
+          description: "Rutas alternas en caso de existir cortes"
+        - name: restricción_vehicular
+          type: string
+          description: "Tipos de vehículos permitidos o restringidos (ej. todo tipo de vehiculos)"
+        - name: sector
+          type: string
+          description: "Sector específico dentro del tramo afectado"
+        - name: trabajos_de_conservación_vial
+          type: string
+          description: "Trabajos de mantenimiento que se están realizando (ej. mantenimiento de la vía)"
