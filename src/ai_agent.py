@@ -158,6 +158,10 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         Si hay columnas de geometría, usa ST_AsText(geom) AS geometry.
         RESPETA las reglas de agregación de la Fase 1.
         
+        RESTRICCIONES IMPORTANTES DE DUCKDB Y ENTORNO:
+        1. DuckDB NO tiene la función `ST_Haversine`. Para calcular distancias entre puntos geográficos usa matemática trigonométrica estándar (RADIANS, SIN, COS, ACOS) o si las geometrías están disponibles usa `ST_Distance(geom1, geom2) * 111000` como aproximación. ¡NUNCA uses `ST_Haversine`!
+        2. UTILIZA SIEMPRE las variables globales de la aplicación proporcionadas en "Contexto del usuario". Si te preguntan "cerca de mi" o "hoy", inyecta literalmente las coordenadas (Latitud y Longitud) y la Fecha exacta que se te pasó en el Contexto del usuario, no inventes funciones de fecha (como GETDATE()) ni coordenadas arbitrarias.
+
         Tienes acceso a `query_database` para probar fragmentos de SQL antes de armar la consulta final.
         
         Responde con un JSON:
@@ -280,5 +284,6 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         "sql": final_sql,
         "dashboard": p3.get("dashboard", []),
         "resumen": p3.get("resumen_ejecutivo", ""),
-        "explicacion": explanation
+        "explicacion": explanation,
+        "data": json.loads(result_df.to_json(orient='records', date_format='iso'))
     }

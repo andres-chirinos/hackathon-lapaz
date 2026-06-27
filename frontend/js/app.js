@@ -3,6 +3,113 @@ import { initMap, renderMapPoints, map } from './map.js';
 
 let currentLat = -16.5000;
 let currentLon = -68.1193;
+let lastAiResult = null;
+
+function applyAiResult() {
+    if (!lastAiResult) return;
+    const result = lastAiResult;
+    
+    // Render Charts on Dashboard if active
+    const currentView = document.querySelector('.main-nav a.active').getAttribute('onclick').includes('dashboard') ? 'dashboard' : 'map';
+    if (currentView === 'dashboard') {
+        let chartContainer = document.getElementById('ai-charts-container');
+        if (!chartContainer) {
+            chartContainer = document.createElement('div');
+            chartContainer.id = 'ai-charts-container';
+            chartContainer.style.display = 'grid';
+            chartContainer.style.gridTemplateColumns = 'repeat(auto-fit, minmax(400px, 1fr))';
+            chartContainer.style.gap = '1.5rem';
+            chartContainer.style.marginTop = '2rem';
+            const mainContent = document.getElementById('main-content');
+            if(mainContent) mainContent.appendChild(chartContainer);
+        }
+        if(!chartContainer) return;
+        
+        chartContainer.innerHTML = ''; // Clear previous
+
+        // 1. Mostrar resumen estructurado como tarjeta
+        if (result.resumen) {
+            const summaryCard = document.createElement('div');
+            summaryCard.className = 'card';
+            summaryCard.style.gridColumn = '1 / -1';
+            summaryCard.style.borderLeft = '4px solid var(--brand-blue)';
+            summaryCard.innerHTML = `<div class="card-header">Conclusión de la IA <i class="ph-fill ph-robot" style="color: var(--brand-blue);"></i></div>
+            <div style="padding: 15px; color: var(--text-primary); line-height: 1.6;">${result.resumen}</div>`;
+            chartContainer.appendChild(summaryCard);
+        }
+
+        // 2. Render charts
+        if (result.dashboard && result.dashboard.length > 0) {
+            result.dashboard.forEach((chartSpec, i) => {
+                if (chartSpec.tipo === 'map') return;
+                
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `<div class="card-header">${chartSpec.titulo}</div><canvas id="ai-chart-${i}"></canvas>`;
+                chartContainer.appendChild(card);
+                
+                const ctx = document.getElementById(`ai-chart-${i}`).getContext('2d');
+                const labels = result.data.map(d => d[chartSpec.x]);
+                const dataPoints = result.data.map(d => d[chartSpec.y]);
+                
+                new Chart(ctx, {
+                    type: chartSpec.tipo === 'area' ? 'line' : (chartSpec.tipo || 'bar'),
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: chartSpec.y,
+                            data: dataPoints,
+                            backgroundColor: 'rgba(0, 229, 255, 0.5)',
+                            borderColor: 'rgba(0, 229, 255, 1)',
+                            borderWidth: 2,
+                            fill: chartSpec.tipo === 'area'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            });
+        }
+    } else if (currentView === 'map' && result.data && result.data.length > 0) {
+         // Automatically plot points if AI returned tabular data with coordinates
+         const points = result.data.map(d => {
+             const lat = d.latitud || d.latitude || d.lat || currentLat;
+             const lng = d.longitud || d.longitude || d.lon || d.lng || currentLon;
+             
+             // Try to guess a good title and build a description
+             let titleStr = "Resultado IA";
+             let descStr = "";
+             Object.keys(d).forEach(k => {
+                 const keyLower = k.toLowerCase();
+                 if (!['latitud', 'latitude', 'lat', 'longitud', 'longitude', 'lon', 'lng'].includes(keyLower)) {
+                     descStr += `<b>${k}:</b> ${d[k]}<br>`;
+                     if (typeof d[k] === 'string' && d[k].length > 3 && titleStr === "Resultado IA") {
+                         titleStr = d[k];
+                     }
+                 }
+             });
+             
+             return {
+                 lat: parseFloat(lat),
+                 lng: parseFloat(lng),
+                 tipo: 'aire', 
+                 titulo: titleStr,
+                 desc: descStr
+             };
+         }).filter(p => !isNaN(p.lat) && !isNaN(p.lng));
+         
+         if (points.length > 0) {
+             renderMapPoints(points);
+             if (map) {
+                 const group = new L.featureGroup(Object.values(categorias).map(c => c.capa));
+                 if (group.getBounds().isValid()) map.fitBounds(group.getBounds());
+             }
+         }
+    }
+}
+
 
 // --- SPA Navigation ---
 window.showView = async function(viewId, event) {
@@ -25,11 +132,14 @@ window.showView = async function(viewId, event) {
         const date = document.getElementById('date-select').value;
 
         if (viewId === 'dashboard') {
-            loadDashboard(date);
+            await loadDashboard(date);
         } else if (viewId === 'map') {
             initMap();
-            loadMapPoints(date);
+            await loadMapPoints(date);
         }
+        
+        // Restore AI state if exists
+        applyAiResult();
     } catch(e) {
         main.innerHTML = `<div style="color:var(--alert-critical); text-align:center;">Error cargando la vista: ${e.message}</div>`;
     }
@@ -106,6 +216,31 @@ function initChat() {
             document.getElementById('chat-explicacion').innerText = result.explicacion || "No hay explicación técnica disponible.";
             document.getElementById('chat-sql').innerText = result.sql || "-- No se generó SQL";
             chatResults.style.display = 'block';
+
+            // CSV Download
+            const dlBtn = document.getElementById('chat-download-btn');
+            if (dlBtn && result.data && result.data.length > 0) {
+                dlBtn.style.display = 'flex';
+                dlBtn.onclick = () => {
+                    const keys = Object.keys(result.data[0]);
+                    const csvContent = "data:text/csv;charset=utf-8," 
+                        + keys.join(",") + "\n"
+                        + result.data.map(row => keys.map(k => JSON.stringify(row[k] || "")).join(",")).join("\n");
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", "kuntur_data.csv");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                };
+            } else if (dlBtn) {
+                dlBtn.style.display = 'none';
+            }
+
+            lastAiResult = result;
+            applyAiResult();
+
         } else {
             alert("Hubo un error al procesar tu consulta con la IA. Asegúrate de tener configurado el GOOGLE_AI_API_KEY.");
         }

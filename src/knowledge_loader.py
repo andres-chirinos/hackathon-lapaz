@@ -92,7 +92,7 @@ def build_vector_store():
     except Exception:
         pass
 
-    collection = client.create_collection(
+    collection = client.get_or_create_collection(
         name="knowledge",
         metadata={"hnsw:space": "cosine"}
     )
