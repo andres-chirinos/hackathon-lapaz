@@ -1,14 +1,17 @@
 """
-ai_agent.py — Three-phase agentic pipeline:
-  Phase 1: Exploratory Analysis (identify data needs + read knowledge)
+ai_agent.py — Three-phase agentic pipeline with vector-based knowledge retrieval:
+  Phase 1: Exploratory Analysis (semantic search knowledge + explore data)
   Phase 2: Query Development  (generate + validate SQL)
   Phase 3: Visualization Plan (design dashboard from results)
 
 Uses Gemini with function calling for tool use.
 """
+from google import genai
+from google.genai import types
 import json
 import streamlit as st
-import google.generativeai as genai
+
+from knowledge_loader import search_knowledge
 
 
 def _parse_json(text: str) -> dict:
@@ -20,9 +23,15 @@ def _parse_json(text: str) -> dict:
     raise ValueError(f"No JSON object found in: {text[:120]}...")
 
 
-def run_agent(nl_query: str, db_schema: str, knowledge_ctx: str, conn):
+def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key: str):
     """
     Execute the 3-phase agent pipeline.
+
+    Args:
+        nl_query: User's natural language question
+        db_schema: DuckDB schema text
+        knowledge_collection: ChromaDB collection for semantic search
+        conn: DuckDB connection
 
     Returns a dict with keys:
       - phases: list of dicts with phase name, thinking, and result
@@ -40,12 +49,13 @@ def run_agent(nl_query: str, db_schema: str, knowledge_ctx: str, conn):
             return f"Error SQL: {e}"
 
     def search_knowledge_base(query: str) -> str:
-        """Busca en el catálogo de conocimiento OKF información sobre tablas, columnas, métricas o guías analíticas."""
-        return knowledge_ctx
+        """Busca semánticamente en la base de conocimiento vectorial (ChromaDB) información sobre tablas, columnas, métricas o guías analíticas. Devuelve los fragmentos más relevantes."""
+        return search_knowledge(knowledge_collection, query, n_results=6)
 
     # ── Model init ────────────────────────────────────────────────
-    model = genai.GenerativeModel(
-        "models/gemini-3.1-flash-lite",
+    client = genai.Client(api_key=api_key)
+    
+    config = types.GenerateContentConfig(
         tools=[query_database, search_knowledge_base]
     )
 
@@ -63,35 +73,37 @@ def run_agent(nl_query: str, db_schema: str, knowledge_ctx: str, conn):
         Tu objetivo es ENTENDER la pregunta del usuario y EXPLORAR qué datos necesitas.
         
         Tienes acceso a estas herramientas:
-        1. `search_knowledge_base`: OBLIGATORIO usarla primero para leer las guías analíticas y el contexto de las tablas involucradas.
+        1. `search_knowledge_base`: OBLIGATORIO usarla primero. Busca semánticamente en la base de conocimiento vectorial para encontrar guías de agregación, contexto de tablas y definiciones de variables. Haz varias búsquedas con términos distintos si es necesario.
         2. `query_database`: Para explorar la estructura real de los datos (ej. SELECT * FROM tabla LIMIT 3).
         
-        Esquemas de DuckDB:
+        Esquemas de DuckDB disponibles:
         {db_schema}
         
         Pregunta del usuario: {nl_query}
         
-        DEBES:
-        1. Llamar a search_knowledge_base para entender las variables que podrías necesitar.
-        2. Hacer al menos una consulta exploratoria con query_database para ver datos reales.
-        3. Responder con un JSON:
+        PROCESO OBLIGATORIO:
+        1. Llama a search_knowledge_base con la temática de la pregunta (ej. "ICA calidad aire", "sequía", "sismos magnitud").
+        2. Llama a search_knowledge_base con "guías analíticas agregación" para entender las reglas.
+        3. Haz al menos una consulta exploratoria con query_database.
+        4. Responde con un JSON:
         {{
             "tablas_necesarias": ["lista de tablas que necesitas"],
             "variables_clave": ["lista de columnas importantes"],
-            "reglas_agregacion": "resumen de las reglas de agregación que aplican",
+            "reglas_agregacion": "resumen de las reglas de agregación que aplican según el knowledge base",
             "plan": "tu plan de análisis paso a paso",
             "dimension_temporal": "columna de fecha si aplica, o null",
             "dimension_espacial": "columna de ubicación/coordenadas si aplica, o null"
         }}
         """
 
-        chat1 = model.start_chat(history=[], enable_automatic_function_calling=True)
+        chat1 = client.chats.create(model="gemini-2.5-flash", config=config)
         resp1 = chat1.send_message(phase1_prompt)
 
         try:
             phase1_result = _parse_json(resp1.text)
         except Exception:
-            phase1_result = {"plan": resp1.text, "tablas_necesarias": [], "variables_clave": []}
+            phase1_result = {"plan": resp1.text,
+                             "tablas_necesarias": [], "variables_clave": []}
 
         phases.append({
             "name": "🔍 Análisis Exploratorio",
@@ -100,8 +112,10 @@ def run_agent(nl_query: str, db_schema: str, knowledge_ctx: str, conn):
         })
 
         st.write(f"**Plan:** {phase1_result.get('plan', 'N/A')}")
-        st.write(f"**Tablas:** {', '.join(phase1_result.get('tablas_necesarias', []))}")
-        st.write(f"**Reglas:** {phase1_result.get('reglas_agregacion', 'N/A')}")
+        st.write(
+            f"**Tablas:** {', '.join(phase1_result.get('tablas_necesarias', []))}")
+        st.write(
+            f"**Reglas:** {phase1_result.get('reglas_agregacion', 'N/A')}")
         s1.update(label="🔍 Fase 1: Completada", state="complete")
 
     # ═══════════════════════════════════════════════════════════════
@@ -125,6 +139,8 @@ def run_agent(nl_query: str, db_schema: str, knowledge_ctx: str, conn):
         Si hay columnas de geometría, usa ST_AsText(geom) AS geometry.
         RESPETA las reglas de agregación de la Fase 1.
         
+        Tienes acceso a `query_database` para probar fragmentos de SQL antes de armar la consulta final.
+        
         Responde con un JSON:
         {{
             "sql": "tu consulta SQL completa",
@@ -132,7 +148,7 @@ def run_agent(nl_query: str, db_schema: str, knowledge_ctx: str, conn):
         }}
         """
 
-        chat2 = model.start_chat(history=[], enable_automatic_function_calling=True)
+        chat2 = client.chats.create(model="gemini-2.5-flash", config=config)
 
         max_retries = 3
         final_sql = ""
@@ -149,7 +165,7 @@ def run_agent(nl_query: str, db_schema: str, knowledge_ctx: str, conn):
             try:
                 p2 = _parse_json(resp2.text)
             except Exception as json_err:
-                retry_msg = f"Error de JSON: {json_err}. Responde SOLO con un JSON válido."
+                retry_msg = f"Error de JSON: {json_err}. Responde SOLO con un JSON válido con las propiedades entre comillas dobles."
                 continue
 
             candidate_sql = p2.get("sql", "")
@@ -220,7 +236,7 @@ def run_agent(nl_query: str, db_schema: str, knowledge_ctx: str, conn):
         }}
         """
 
-        chat3 = model.start_chat(history=[], enable_automatic_function_calling=True)
+        chat3 = client.chats.create(model="gemini-2.5-flash", config=config)
         resp3 = chat3.send_message(phase3_prompt)
 
         try:

@@ -1,20 +1,19 @@
-"""
-app.py — Main Streamlit application.
-Orchestrates db_engine, knowledge_loader, ai_agent, and visualizer.
-"""
+import os
+# WORKAROUND: El sistema tiene una configuración OpenSSL rota (module initialization error _ssl.c:3187).
+# Forzamos ignorarla antes de importar cualquier librería que use sockets o red.
+os.environ["OPENSSL_CONF"] = "/dev/null"
+
 import streamlit as st
 import pandas as pd
 import pygwalker as pyg
-import os
 import ssl
-import google.generativeai as genai
 from dotenv import load_dotenv
 
 # Fix for Streamlit/Altair SSL certificate verification errors in some environments
 ssl._create_default_https_context = ssl._create_unverified_context
 
 from db_engine import get_connection, load_datapackages
-from knowledge_loader import load_all_knowledge
+from knowledge_loader import build_vector_store
 from ai_agent import run_agent
 from visualizer import render_filters, render_dashboard, render_map_tab
 
@@ -28,15 +27,13 @@ st.set_page_config(
 )
 
 api_key = os.getenv("GOOGLE_AI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
 
 # ── Data Layer ────────────────────────────────────────────────────
 conn = get_connection()
 tables_info, db_schema = load_datapackages(conn)
 
-# ── Knowledge Layer ───────────────────────────────────────────────
-knowledge_ctx = load_all_knowledge()
+# ── Knowledge Layer (Vector Store) ────────────────────────────────
+knowledge_collection, n_chunks = build_vector_store()
 
 # ── UI: Header ────────────────────────────────────────────────────
 st.title("🔬 DataLab La Paz")
@@ -52,7 +49,7 @@ for tname, schema in tables_info.items():
         st.dataframe(schema[['column_name', 'column_type']], hide_index=True)
 
 st.sidebar.divider()
-st.sidebar.caption(f"Knowledge Base: {len(knowledge_ctx)} caracteres de contexto cargados.")
+st.sidebar.caption(f"📦 Knowledge Base: {n_chunks} fragmentos indexados en ChromaDB.")
 
 # ── UI: AI Query ──────────────────────────────────────────────────
 st.subheader("🤖 Consultar con Inteligencia Artificial")
@@ -66,7 +63,7 @@ if st.button("🚀 Analizar con IA", type="primary") and nl_query:
     if not api_key:
         st.error("No se encontró `GOOGLE_AI_API_KEY` en el archivo `.env`.")
     else:
-        result = run_agent(nl_query, db_schema, knowledge_ctx, conn)
+        result = run_agent(nl_query, db_schema, knowledge_collection, conn, api_key)
 
         if result:
             st.session_state["generated_sql"] = result["sql"]
