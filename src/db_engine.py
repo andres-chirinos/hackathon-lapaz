@@ -34,6 +34,7 @@ def load_datapackages(_conn):
 
     dp_files = (
         glob.glob('data/**/datapackage*.yml', recursive=True)
+        + glob.glob('data/**/datapackage*.yaml', recursive=True)
         + glob.glob('data/**/datapackage*.json', recursive=True)
     )
 

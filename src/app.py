@@ -6,7 +6,10 @@ os.environ["OPENSSL_CONF"] = "/dev/null"
 import streamlit as st
 import pandas as pd
 import pygwalker as pyg
+import folium
+from streamlit_folium import st_folium
 import ssl
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Fix for Streamlit/Altair SSL certificate verification errors in some environments
@@ -49,6 +52,42 @@ for tname, schema in tables_info.items():
         st.dataframe(schema[['column_name', 'column_type']], hide_index=True)
 
 st.sidebar.divider()
+st.sidebar.subheader("📍 Contexto del Usuario")
+user_date = st.sidebar.date_input("Fecha actual", datetime.now().date())
+
+# Inicializar coordenadas en session_state si no existen (La Paz por defecto)
+if "user_lat" not in st.session_state:
+    st.session_state.user_lat = -16.4897
+if "user_lon" not in st.session_state:
+    st.session_state.user_lon = -68.1193
+
+st.sidebar.write("Haz clic en el mapa para establecer tu ubicación actual:")
+m = folium.Map(location=[st.session_state.user_lat, st.session_state.user_lon], zoom_start=12)
+
+# Añadir el marcador en la ubicación actual
+folium.Marker(
+    [st.session_state.user_lat, st.session_state.user_lon],
+    tooltip="Tu ubicación",
+    icon=folium.Icon(color="red", icon="info-sign")
+).add_to(m)
+
+# Renderizar el mapa interactivo en el sidebar
+map_data = st_folium(m, width=280, height=300, key="user_loc_map")
+
+# Si el usuario hizo clic en un nuevo punto, actualizamos el estado y recargamos
+if map_data and map_data.get("last_clicked"):
+    clicked_lat = map_data["last_clicked"]["lat"]
+    clicked_lon = map_data["last_clicked"]["lng"]
+    if clicked_lat != st.session_state.user_lat or clicked_lon != st.session_state.user_lon:
+        st.session_state.user_lat = clicked_lat
+        st.session_state.user_lon = clicked_lon
+        st.rerun()
+
+user_location = f"Lat: {st.session_state.user_lat:.5f}, Lon: {st.session_state.user_lon:.5f}"
+
+st.sidebar.info(f"**GPS:** {user_location}")
+
+st.sidebar.divider()
 st.sidebar.caption(f"📦 Knowledge Base: {n_chunks} fragmentos indexados en ChromaDB.")
 
 # ── UI: AI Query ──────────────────────────────────────────────────
@@ -63,7 +102,8 @@ if st.button("🚀 Analizar con IA", type="primary") and nl_query:
     if not api_key:
         st.error("No se encontró `GOOGLE_AI_API_KEY` en el archivo `.env`.")
     else:
-        result = run_agent(nl_query, db_schema, knowledge_collection, conn, api_key)
+        user_context = f"Fecha de hoy: {user_date}\nUbicación del usuario: {user_location}"
+        result = run_agent(nl_query, db_schema, knowledge_collection, conn, api_key, user_context)
 
         if result:
             st.session_state["generated_sql"] = result["sql"]

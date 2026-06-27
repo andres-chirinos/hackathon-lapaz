@@ -1,0 +1,67 @@
+resources:
+  - name: financial_entities_places
+    type: table
+    path: data/financial_entities/financial_entities_places.csv
+    scheme: file
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: codigoPAF
+          type: integer
+          description: "Código del Punto de Atención Financiera"
+        - name: numeroSucursal
+          type: integer
+          description: "Número de sucursal"
+        - name: codigoEntidad
+          type: integer
+          description: "Código de la entidad financiera"
+        - name: entidad
+          type: string
+          description: "Nombre de la entidad financiera"
+        - name: fechaModificacion
+          type: datetime
+          description: "Fecha y hora de modificación del registro"
+        - name: estado
+          type: boolean
+          description: "Estado activo o inactivo del registro"
+        - name: latitud
+          type: number
+          description: "Latitud geográfica de la ubicación"
+        - name: longitud
+          type: number
+          description: "Longitud geográfica de la ubicación"
+        - name: contenidoHTML
+          type: string
+          description: "Contenido HTML con el detalle y horarios de atención"
+        - name: tipoPAF
+          type: string
+          description: "Tipo de Punto de Atención Financiera (ej. S: Sucursal, C: Cajero)"
+        - name: departamento
+          type: string
+          description: "Nombre del departamento"
+        - name: centidadTipo
+          type: integer
+          description: "Código de tipo de entidad"
+        - name: desGrupo
+          type: string
+          description: "Descripción del grupo (ej. Oficina Externa, Cajero Automático)"
+        - name: tdescripcion
+          type: string
+          description: "Descripción específica del tipo de oficina o punto de atención"
+        - name: cgrupo
+          type: string
+          description: "Código del grupo (ej. OE, CA)"
+        - name: tentidadSigla
+          type: string
+          description: "Sigla de la entidad financiera"
+        - name: ctipoSucursal
+          type: string
+          description: "Código de tipo de sucursal"
+        - name: cod_departamento
+          type: integer
+          description: "Código numérico del departamento"
+        - name: cod_entidad
+          type: integer
+          description: "Código numérico alternativo de la entidad"

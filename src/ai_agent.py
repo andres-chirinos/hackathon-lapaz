@@ -23,7 +23,7 @@ def _parse_json(text: str) -> dict:
     raise ValueError(f"No JSON object found in: {text[:120]}...")
 
 
-def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key: str):
+def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key: str, user_context: str = ""):
     """
     Execute the 3-phase agent pipeline.
 
@@ -54,7 +54,7 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
 
     # ── Model init ────────────────────────────────────────────────
     client = genai.Client(api_key=api_key)
-    
+
     config = types.GenerateContentConfig(
         tools=[query_database, search_knowledge_base]
     )
@@ -81,6 +81,9 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         
         Pregunta del usuario: {nl_query}
         
+        Contexto espacial y temporal del usuario (Úsalo para entender referencias como "aquí", "hoy", "esta semana"):
+        {user_context}
+        
         PROCESO OBLIGATORIO:
         1. Llama a search_knowledge_base con la temática de la pregunta (ej. "ICA calidad aire", "sequía", "sismos magnitud").
         2. Llama a search_knowledge_base con "guías analíticas agregación" para entender las reglas.
@@ -96,7 +99,8 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         }}
         """
 
-        chat1 = client.chats.create(model="gemini-2.5-flash", config=config)
+        chat1 = client.chats.create(
+            model="gemini-2.5-flash", config=config)
         resp1 = chat1.send_message(phase1_prompt)
 
         try:
@@ -130,6 +134,9 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         Contexto de la Fase 1 (tu análisis previo):
         {json.dumps(phase1_result, ensure_ascii=False)}
         
+        Contexto del usuario (Fecha y Ubicación):
+        {user_context}
+        
         Esquemas de DuckDB:
         {db_schema}
         
@@ -148,7 +155,8 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         }}
         """
 
-        chat2 = client.chats.create(model="gemini-2.5-flash", config=config)
+        chat2 = client.chats.create(
+            model="gemini-2.5-flash", config=config)
 
         max_retries = 3
         final_sql = ""
@@ -236,7 +244,8 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         }}
         """
 
-        chat3 = client.chats.create(model="gemini-2.5-flash", config=config)
+        chat3 = client.chats.create(
+            model="gemini-2.5-flash", config=config)
         resp3 = chat3.send_message(phase3_prompt)
 
         try:

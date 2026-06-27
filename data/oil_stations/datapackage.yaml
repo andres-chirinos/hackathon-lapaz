@@ -1,0 +1,62 @@
+resources:
+  - name: stations
+    type: table
+    path: data/oil_stations/stations.csv
+    scheme: file
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: id_eess_saldo
+          type: integer
+          description: "ID de la estación de combustible"
+        - name: id_entidad
+          type: integer
+          description: "ID de la entidad"
+        - name: latitud
+          type: number
+          description: "Latitud de la estación de combustible"
+        - name: longitud
+          type: number
+          description: "Longitud de la estación de combustible"
+        - name: nombreEstacion
+          type: string
+          description: "Nombre de la estación de combustible"
+        - name: direccion
+          type: string
+          description: "Dirección de la estación de combustible"
+        - name: id_departamento
+          type: integer
+          description: "ID del departamento"
+
+  - name: supply
+    type: table
+    path: data/oil_stations/supply.csv
+    scheme: file
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: fecha_actualizacion
+          type: datetime
+          description: "Fecha de la actualización"
+        - name: id_eess
+          type: integer
+          description: "ID de la estación de combustible"
+        - name: id_producto_bsa
+          type: integer
+          description: "ID del producto"
+        - name: fecha_ultima_venta
+          type: any
+          description: "Fecha de la última venta"
+        - name: saldo_octano
+          type: number
+          description: "Saldo de octano"
+        - name: saldo_bsa
+          type: number
+          description: "Saldo de bsa"
+        - name: saldo_planta
+          type: number
+          description: "Saldo de planta"
