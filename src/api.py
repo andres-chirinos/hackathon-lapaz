@@ -13,7 +13,7 @@ import json
 from dotenv import load_dotenv
 import pandas as pd
 
-load_dotenv("src/.env")
+load_dotenv(".env")
 
 app = FastAPI(title="DataLab La Paz API")
 
@@ -250,12 +250,19 @@ def execute_sql(q: SqlQuery):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Mount directories for static files
-app.mount("/css", StaticFiles(directory="frontend/css"), name="css")
-app.mount("/js", StaticFiles(directory="frontend/js"), name="js")
+# Serve data directory for GeoJSON etc.
 app.mount("/data", StaticFiles(directory="data"), name="data")
-app.mount("/views", StaticFiles(directory="frontend/views"), name="views")
 
-@app.get("/")
-def read_index():
-    return FileResponse("frontend/index.html")
+# Serve React build in production (if dist exists)
+import pathlib
+react_dist = pathlib.Path("frontend/dist")
+if react_dist.exists():
+    app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    def serve_spa(full_path: str):
+        # Serve index.html for all non-API routes (SPA fallback)
+        file_path = react_dist / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse("frontend/dist/index.html")

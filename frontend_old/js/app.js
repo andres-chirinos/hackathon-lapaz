@@ -1,5 +1,5 @@
-import { fetchDashboardData, fetchMapPoints, chatWithAgent, fetchLocationInfo } from './api.js';
-import { initMap, renderMapPoints, map } from './map.js';
+import { fetchDashboardData, fetchMapPoints, chatWithAgent, fetchLocationInfo, executeSql } from './api.js';
+import { initMap, renderMapPoints, map, categorias } from './map.js';
 
 let currentLat = -16.5000;
 let currentLon = -68.1193;
@@ -94,9 +94,11 @@ function applyAiResult() {
              return {
                  lat: parseFloat(lat),
                  lng: parseFloat(lng),
-                 tipo: 'aire', 
+                 tipo: d.tipo || d.capa || 'ia_custom', 
                  titulo: titleStr,
-                 desc: descStr
+                 desc: descStr,
+                 color: d.color,
+                 icon: d.icon
              };
          }).filter(p => !isNaN(p.lat) && !isNaN(p.lng));
          
@@ -110,6 +112,53 @@ function applyAiResult() {
     }
 }
 
+// Catalogo view logic
+async function loadCatalogo() {
+    try {
+        const container = document.getElementById('catalogo-container');
+        if (!container) return;
+        
+        const res = await fetch('/api/catalogo');
+        if (!res.ok) throw new Error("Error fetching catalog");
+        const data = await res.json();
+        
+        container.innerHTML = ''; // Clear loading
+        
+        data.catalogo.forEach(ds => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.overflow = 'hidden';
+
+            let thead = ds.columns.map(c => `<th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">${c}</th>`).join('');
+            
+            let tbody = ds.samples.map(row => {
+                return '<tr>' + ds.columns.map(c => `<td style="padding: 0.5rem; border-bottom: 1px solid var(--border-color); font-size: 0.85rem;">${row[c]}</td>`).join('') + '</tr>';
+            }).join('');
+
+            card.innerHTML = `
+                <div class="card-header" style="font-size: 1.1rem; color: var(--brand-blue);">
+                    <span><i class="ph-fill ph-table"></i> Dataset: ${ds.table_name.replace(/_/g, ' ').toUpperCase()}</span>
+                    <span style="background: var(--brand-cyan); color: #000; padding: 0.2rem 0.8rem; border-radius: 12px; font-size: 0.8rem;">${ds.total_rows} Registros Totales</span>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+                        <thead><tr>${thead}</tr></thead>
+                        <tbody>${tbody}</tbody>
+                    </table>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        
+        if(data.catalogo.length === 0) {
+             container.innerHTML = '<p>No hay datos disponibles en el catálogo.</p>';
+        }
+    } catch (e) {
+        console.error(e);
+        const container = document.getElementById('catalogo-container');
+        if (container) container.innerHTML = '<p style="color: red;">Error al cargar el catálogo de datos.</p>';
+    }
+}
 
 // --- SPA Navigation ---
 window.showView = async function(viewId, event) {
@@ -129,13 +178,22 @@ window.showView = async function(viewId, event) {
         if (!res.ok) throw new Error("View not found");
         main.innerHTML = await res.text();
 
-        const date = document.getElementById('date-select').value;
+        const startDate = document.getElementById('start-date')?.value || new Date().toISOString().split('T')[0];
+        const endDate = document.getElementById('end-date')?.value || new Date().toISOString().split('T')[0];
 
         if (viewId === 'dashboard') {
-            await loadDashboard(date);
+            main.style.padding = '2rem';
+            main.style.maxWidth = '1400px';
+            await loadDashboard(startDate, endDate);
         } else if (viewId === 'map') {
+            main.style.padding = '0';
+            main.style.maxWidth = '100%';
             initMap();
-            await loadMapPoints(date);
+            await loadMapPoints(startDate, endDate);
+        } else if (viewId === 'catalogo') {
+            main.style.padding = '2rem';
+            main.style.maxWidth = '1400px';
+            await loadCatalogo();
         }
         
         // Restore AI state if exists
@@ -145,8 +203,8 @@ window.showView = async function(viewId, event) {
     }
 }
 
-async function loadDashboard(date = null) {
-    const data = await fetchDashboardData(date);
+async function loadDashboard(startDate = null, endDate = null) {
+    const data = await fetchDashboardData(startDate, endDate);
     if (!data) return;
 
     const elAqi = document.getElementById('dashboard-aqi');
@@ -172,8 +230,8 @@ async function loadDashboard(date = null) {
     }
 }
 
-async function loadMapPoints(date = null) {
-    const data = await fetchMapPoints(date);
+async function loadMapPoints(startDate = null, endDate = null) {
+    const data = await fetchMapPoints(startDate, endDate);
     if (data && data.points) {
         renderMapPoints(data.points);
     }
@@ -194,12 +252,8 @@ function initChat() {
             return;
         }
 
-        if (map) {
-            const center = map.getCenter();
-            currentLat = center.lat;
-            currentLon = center.lng;
-        }
-
+        // We use the global currentLat and currentLon which are updated via GPS or Municipio search.
+        
         chatLoading.style.display = 'block';
         chatResults.style.display = 'none';
         chatBtn.disabled = true;
@@ -214,7 +268,10 @@ function initChat() {
         if (result) {
             document.getElementById('chat-resumen').innerHTML = result.resumen || "Análisis completado (sin resumen específico).";
             document.getElementById('chat-explicacion').innerText = result.explicacion || "No hay explicación técnica disponible.";
-            document.getElementById('chat-sql').innerText = result.sql || "-- No se generó SQL";
+            
+            const sqlBlock = document.getElementById('chat-sql');
+            if (sqlBlock) sqlBlock.innerText = result.sql || "-- No se generó SQL";
+            
             chatResults.style.display = 'block';
 
             // CSV Download
@@ -245,14 +302,89 @@ function initChat() {
             alert("Hubo un error al procesar tu consulta con la IA. Asegúrate de tener configurado el GOOGLE_AI_API_KEY.");
         }
     });
+
+    // SQL Terminal logic
+    const toggleSqlBtn = document.getElementById('toggle-sql-btn');
+    const closeSqlBtn = document.getElementById('close-sql-btn');
+    const sqlPanel = document.getElementById('sql-panel');
+    const sqlInput = document.getElementById('sql-input');
+    const runSqlBtn = document.getElementById('run-sql-btn');
+
+    if (toggleSqlBtn && sqlPanel) {
+        toggleSqlBtn.addEventListener('click', () => {
+            const currentSql = document.getElementById('chat-sql') ? document.getElementById('chat-sql').innerText : '';
+            if (currentSql && currentSql !== "-- No se generó SQL") {
+                sqlInput.value = currentSql;
+            }
+            sqlPanel.style.display = 'flex';
+        });
+    }
+
+    if (closeSqlBtn && sqlPanel) {
+        closeSqlBtn.addEventListener('click', () => {
+            sqlPanel.style.display = 'none';
+        });
+    }
+
+    if (runSqlBtn && sqlInput) {
+        runSqlBtn.addEventListener('click', async () => {
+            const query = sqlInput.value.trim();
+            if (!query) return;
+            
+            runSqlBtn.disabled = true;
+            runSqlBtn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Ejecutando...';
+            
+            try {
+                const data = await executeSql(query);
+                
+                // Show result in a popup or under the textarea
+                let resultHtml = `<div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem; color: var(--text-primary);">
+                    <div style="font-weight: bold; margin-bottom: 0.5rem; color: var(--brand-cyan);">Resultado (${data.total_rows} filas):</div>
+                    <div style="overflow-x: auto; max-height: 200px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead>
+                                <tr>${data.columns.map(c => `<th style="text-align: left; padding: 0.3rem; border-bottom: 1px solid var(--border-color);">${c}</th>`).join('')}</tr>
+                            </thead>
+                            <tbody>
+                                ${data.rows.map(row => `<tr>${data.columns.map(c => `<td style="padding: 0.3rem; border-bottom: 1px solid var(--border-color);">${row[c]}</td>`).join('')}</tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+                
+                // Remove previous result if any
+                const prevResult = document.getElementById('sql-result-container');
+                if (prevResult) prevResult.remove();
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.id = 'sql-result-container';
+                resultDiv.innerHTML = resultHtml;
+                sqlInput.parentElement.appendChild(resultDiv);
+                
+            } catch (e) {
+                alert("Error SQL:\n" + e.message);
+            } finally {
+                runSqlBtn.disabled = false;
+                runSqlBtn.innerHTML = '<i class="ph-fill ph-play"></i> Ejecutar SQL';
+            }
+        });
+    }
 }
 
 // --- Init Logic ---
 document.addEventListener("DOMContentLoaded", () => {
-    // Set default date to today
-    const today = new Date().toISOString().split('T')[0];
-    const dateInput = document.getElementById('date-select');
-    if (dateInput) dateInput.value = today;
+    // Set default date to today for end-date, and 7 days ago for start-date
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    const lastWeekStr = lastWeek.toISOString().split('T')[0];
+
+    const startDateInput = document.getElementById('start-date');
+    const endDateInput = document.getElementById('end-date');
+    if (startDateInput) startDateInput.value = lastWeekStr;
+    if (endDateInput) endDateInput.value = todayStr;
 
     // Initial Load
     window.showView('dashboard');
@@ -324,12 +456,19 @@ document.addEventListener("DOMContentLoaded", () => {
                     map.fitBounds(municipiosLayer.getBounds());
                     
                     const center = municipiosLayer.getBounds().getCenter();
-                    centerLat = center.lat;
-                    centerLon = center.lng;
+                    currentLat = center.lat;
+                    currentLon = center.lng;
+                } else if (f.geojson) {
+                    // Even if map is not initialized, we can compute center using Leaflet headless
+                    const tempLayer = L.geoJSON(f.geojson);
+                    const center = tempLayer.getBounds().getCenter();
+                    currentLat = center.lat;
+                    currentLon = center.lng;
                 }
 
-                const currentDate = document.getElementById('date-select').value;
-                const locInfo = await fetchLocationInfo(centerLat, centerLon, currentDate);
+                const startDate = document.getElementById('start-date') ? document.getElementById('start-date').value : new Date().toISOString().split('T')[0];
+                const endDate = document.getElementById('end-date') ? document.getElementById('end-date').value : new Date().toISOString().split('T')[0];
+                const locInfo = await fetchLocationInfo(currentLat, currentLon, startDate, endDate);
                 
                 alertText.innerHTML = `Viendo datos para <strong>${locInfo.municipio || selectedText}</strong>.`;
                 renderAlerts(locInfo);
@@ -392,11 +531,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Date Selector Logic
-    document.getElementById('date-select').addEventListener('change', (e) => {
-        const date = e.target.value;
-        const currentView = document.querySelector('.main-nav a.active').getAttribute('onclick').includes('dashboard') ? 'dashboard' : 'map';
-        if (currentView === 'dashboard') loadDashboard(date);
-        else if (currentView === 'map') loadMapPoints(date);
+    document.addEventListener('change', (e) => {
+        if (e.target.id === 'start-date' || e.target.id === 'end-date') {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const currentView = document.querySelector('.main-nav a.active').getAttribute('onclick').includes('dashboard') ? 'dashboard' : 'map';
+            if (currentView === 'dashboard') loadDashboard(startDate, endDate);
+            else if (currentView === 'map') loadMapPoints(startDate, endDate);
+        }
     });
 
     // Helper to render alerts
@@ -470,8 +612,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 alertBanner.style.display = 'flex';
                 alertText.innerHTML = `Analizando tu ubicación...`;
                 
-                const currentDate = document.getElementById('date-select').value;
-                const locInfo = await fetchLocationInfo(currentLat, currentLon, currentDate);
+                const startDate = document.getElementById('start-date') ? document.getElementById('start-date').value : new Date().toISOString().split('T')[0];
+                const endDate = document.getElementById('end-date') ? document.getElementById('end-date').value : new Date().toISOString().split('T')[0];
+                const locInfo = await fetchLocationInfo(currentLat, currentLon, startDate, endDate);
                 
                 alertText.innerHTML = `Ubicación detectada: <strong>${locInfo.municipio}</strong>.`;
                 renderAlerts(locInfo);
