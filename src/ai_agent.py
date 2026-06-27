@@ -9,9 +9,21 @@ Uses Gemini with function calling for tool use.
 from google import genai
 from google.genai import types
 import json
-import streamlit as st
 
-from knowledge_loader import search_knowledge
+class MockST:
+    def write(self, *args, **kwargs): pass
+    def status(self, *args, **kwargs): return self
+    def __enter__(self): return self
+    def __exit__(self, exc_type, exc_val, exc_tb): pass
+    def update(self, *args, **kwargs): pass
+    def code(self, *args, **kwargs): pass
+
+st = MockST()
+
+try:
+    from src.knowledge_loader import search_knowledge
+except ImportError:
+    from knowledge_loader import search_knowledge
 
 
 def _parse_json(text: str) -> dict:

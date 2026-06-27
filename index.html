@@ -4,9 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kuntur - Aplicación de Monitoreo</title>
+    
+    <!-- Fonts and Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
     <style>
         /* Sistema de Diseño: 12 Variables CSS en :root */
         :root {
@@ -48,7 +54,7 @@
             align-items: center;
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: 1000;
         }
 
         .header-left { display: flex; align-items: center; gap: 2.5rem; }
@@ -56,7 +62,7 @@
         .logo i { color: var(--brand-cyan); font-size: 1.8rem; }
 
         .main-nav { display: flex; gap: 1.5rem; }
-        .main-nav a { text-decoration: none; color: var(--text-secondary); font-weight: 600; font-size: 0.95rem; }
+        .main-nav a { text-decoration: none; color: var(--text-secondary); font-weight: 600; font-size: 0.95rem; cursor: pointer;}
         .main-nav a.active { color: var(--brand-blue); border-bottom: 2px solid var(--brand-blue); padding-bottom: 4px; }
         .main-nav a:hover { color: var(--brand-blue); }
 
@@ -68,6 +74,10 @@
         .theme-toggle { background: none; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer; }
 
         main { max-width: 1200px; margin: 0 auto; padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+        /* Vistas SPA */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
 
         /* Alerta Dinámica */
         .alert-banner {
@@ -91,7 +101,7 @@
         .gauge-container { position: relative; width: 100%; height: 90px; display: flex; justify-content: center; overflow: hidden; }
         .gauge-svg { width: 160px; height: 160px; }
         .gauge-bg { fill: none; stroke: var(--border-color); stroke-width: 14; }
-        .gauge-val { fill: none; stroke: url(#aqi-gradient); stroke-width: 14; stroke-dasharray: 125.6; stroke-dashoffset: 20; stroke-linecap: round; }
+        .gauge-val { fill: none; stroke: url(#aqi-gradient); stroke-width: 14; stroke-dasharray: 125.6; stroke-dashoffset: 125.6; stroke-linecap: round; transition: stroke-dashoffset 1s ease-out; }
         .gauge-text { position: absolute; bottom: 0; font-size: 2rem; font-weight: bold; color: var(--text-primary); }
         
         .sparkline { width: 100%; height: 40px; margin-top: 5px; }
@@ -101,6 +111,15 @@
         .blockade-list { list-style: none; display: flex; flex-direction: column; gap: 0.8rem; }
         .blockade-list li { display: flex; align-items: center; gap: 0.8rem; font-size: 0.95rem; font-weight: 600; }
         .blockade-list i { font-size: 1.2rem; color: var(--alert-critical); }
+
+        /* Mapa y Filtros */
+        #map { height: 600px; width: 100%; z-index: 1; border-radius: 12px; border: 1px solid var(--border-color); }
+        .filter-panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.3); color: #333; }
+        .filter-item { margin-bottom: 8px; display: flex; align-items: center; cursor: pointer; }
+        
+        /* Iconos mapa */
+        .custom-icon { display: flex; justify-content: center; align-items: center; border-radius: 50%; border: 2px solid white; color: white; font-size: 14px; }
+        .icon-bloqueo { border-radius: 0; border: 2px dashed black; background: #eee !important; color: black !important; }
 
         @media (max-width: 768px) {
             header { flex-direction: column; gap: 1rem; }
@@ -116,15 +135,14 @@
                 <i class="ph-fill ph-paper-plane-tilt"></i> KUNTUR
             </a>
             <nav class="main-nav">
-                <a href="#principal" class="active">Principal</a>
-                <a href="#mapa">Mapa Interactivo</a>
-                <a href="#reportes">Reportes</a>
+                <a class="active" onclick="showView('principal')">Principal</a>
+                <a onclick="showView('mapa')">Mapa Interactivo</a>
             </nav>
         </div>
         <div class="controls">
             <select class="municipio-select" id="municipio-select">
                 <option value="" disabled selected>Seleccione Municipio...</option>
-                </select>
+            </select>
             <button class="theme-toggle" id="theme-btn">
                 <i class="ph ph-moon"></i>
             </button>
@@ -143,74 +161,162 @@
             <button class="alert-btn">Ver Detalles</button>
         </section>
 
-        <section class="dashboard-grid">
-            
-            <article class="card">
-                <div class="card-header">
-                    Calidad del Aire
-                    <i class="ph ph-wind" style="color: var(--alert-toxic); font-size: 1.5rem;"></i>
-                </div>
-                <div class="gauge-container">
-                    <svg class="gauge-svg" viewBox="0 0 100 50">
-                        <defs>
-                            <linearGradient id="aqi-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stop-color="#F97316" /> <stop offset="100%" stop-color="#9333EA" /> </linearGradient>
-                        </defs>
-                        <path class="gauge-bg" d="M 10 40 A 30 30 0 0 1 90 40" />
-                        <path class="gauge-val" d="M 10 40 A 30 30 0 0 1 90 40" />
+        <!-- View: Principal -->
+        <div id="view-principal" class="view-section active">
+            <section class="dashboard-grid">
+                <article class="card">
+                    <div class="card-header">
+                        Calidad del Aire (AQI)
+                        <i class="ph ph-wind" style="color: var(--alert-toxic); font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="gauge-container">
+                        <svg class="gauge-svg" viewBox="0 0 100 50">
+                            <defs>
+                                <linearGradient id="aqi-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stop-color="#22C55E" /> 
+                                    <stop offset="50%" stop-color="#F97316" /> 
+                                    <stop offset="100%" stop-color="#9333EA" /> 
+                                </linearGradient>
+                            </defs>
+                            <path class="gauge-bg" d="M 10 40 A 30 30 0 0 1 90 40" />
+                            <path class="gauge-val" id="gauge-val-path" d="M 10 40 A 30 30 0 0 1 90 40" />
+                        </svg>
+                        <div class="gauge-text" id="dashboard-aqi">--</div>
+                    </div>
+                </article>
+
+                <article class="card">
+                    <div class="card-header">
+                        Último Sismo
+                        <i class="ph ph-activity" style="color: var(--brand-cyan); font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="card-value"><span id="dashboard-seismic">--</span><span style="font-size: 1rem; color: var(--text-secondary);"> Mag</span></div>
+                    <svg class="sparkline" viewBox="0 0 100 30">
+                        <path d="M0,25 L10,25 L15,10 L20,30 L25,5 L30,25 L100,25" stroke="var(--brand-cyan)" />
                     </svg>
-                    <div class="gauge-text">154</div>
-                </div>
-            </article>
+                </article>
 
-            <article class="card">
-                <div class="card-header">
-                    Actividad Sísmica
-                    <i class="ph ph-activity" style="color: var(--brand-cyan); font-size: 1.5rem;"></i>
-                </div>
-                <div class="card-value">2.4<span style="font-size: 1rem; color: var(--text-secondary);"> Mag</span></div>
-                <svg class="sparkline" viewBox="0 0 100 30">
-                    <path d="M0,25 L10,25 L15,10 L20,30 L25,5 L30,25 L100,25" stroke="var(--brand-cyan)" />
-                </svg>
-            </article>
+                <article class="card">
+                    <div class="card-header">
+                        Puntos de Bloqueo
+                        <i class="ph ph-barricade" style="color: var(--alert-critical); font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="card-value" id="dashboard-blockades">--</div>
+                    <ul class="blockade-list" id="blockade-list-details">
+                        <!-- Populated by JS -->
+                    </ul>
+                </article>
+            </section>
+        </div>
 
-            <article class="card">
-                <div class="card-header">
-                    Temperatura
-                    <i class="ph ph-thermometer" style="color: var(--alert-warning); font-size: 1.5rem;"></i>
-                </div>
-                <div class="card-value">22°C</div>
-                <svg class="sparkline" viewBox="0 0 100 30">
-                    <path d="M0,25 Q 25,20 50,15 T 100,5" stroke="var(--alert-warning)" stroke-dasharray="4" />
-                </svg>
-            </article>
+        <!-- View: Mapa Interactivo -->
+        <div id="view-mapa" class="view-section">
+            <div id="map"></div>
+        </div>
 
-            <article class="card">
-                <div class="card-header">
-                    Puntos de Bloqueo
-                    <i class="ph ph-barricade" style="color: var(--alert-critical); font-size: 1.5rem;"></i>
-                </div>
-                <ul class="blockade-list">
-                    <li><i class="ph-fill ph-traffic-signal" style="color: var(--alert-critical);"></i> Av. Blanco Galindo</li>
-                    <li><i class="ph-fill ph-traffic-signal" style="color: var(--alert-critical);"></i> Carretera a Oruro</li>
-                </ul>
-            </article>
-
-        </section>
     </main>
 
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. Array comprensivo de municipios (Estructura optimizada)
+        // --- 1. SPA Navigation ---
+        function showView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            
+            document.querySelectorAll('.main-nav a').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (viewId === 'mapa') {
+                setTimeout(() => map.invalidateSize(), 200); // Fix map size issue when initially hidden
+            }
+        }
+
+        // --- 2. Data Fetching ---
+        const API_URL = 'http://localhost:8000/api';
+
+        async function fetchDashboardData() {
+            try {
+                const res = await fetch(`${API_URL}/dashboard_data`);
+                const data = await res.json();
+                
+                // AQI
+                document.getElementById('dashboard-aqi').innerText = data.aqi;
+                // Update Gauge (Max AQI ~ 300)
+                const pct = Math.min(data.aqi / 300, 1);
+                const offset = 125.6 - (125.6 * pct);
+                document.getElementById('gauge-val-path').style.strokeDashoffset = offset;
+
+                // Seismic
+                document.getElementById('dashboard-seismic').innerText = data.seismic_mag;
+                
+                // Blockades
+                document.getElementById('dashboard-blockades').innerText = data.blockades;
+                if(data.blockades > 0) {
+                    document.getElementById('blockade-list-details').innerHTML = `<li><i class="ph-fill ph-traffic-signal" style="color: var(--alert-critical);"></i> ${data.blockades} puntos críticos detectados</li>`;
+                }
+
+            } catch(e) {
+                console.error("Error fetching dashboard data:", e);
+            }
+        }
+
+        async function fetchMapPoints() {
+            try {
+                const res = await fetch(`${API_URL}/map_points`);
+                const data = await res.json();
+                
+                data.points.forEach(p => {
+                    const cat = categorias[p.tipo] || categorias['aire']; // default
+                    const esBloqueo = p.tipo === 'bloqueo';
+                    const icono = L.divIcon({
+                        className: `custom-icon ${esBloqueo ? 'icon-bloqueo' : ''}`,
+                        html: `<i class="fa-solid ${cat.icon}"></i>`,
+                        iconSize: [30, 30],
+                        style: `background-color: ${cat.color};`
+                    });
+                    L.marker([p.lat, p.lng], {icon: icono}).bindPopup(`<b>${p.titulo}</b><br>${p.desc}`).addTo(cat.capa);
+                });
+            } catch(e) {
+                console.error("Error fetching map points:", e);
+            }
+        }
+
+        // --- 3. Map Initialization ---
+        const map = L.map('map').setView([-16.5000, -68.1193], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {}).addTo(map);
+
+        const categorias = {
+            fuego: { color: '#FF0000', icon: 'fa-fire', nombre: 'Incendio', capa: L.layerGroup().addTo(map) },
+            sismo: { color: '#8B4513', icon: 'fa-house-crack', nombre: 'Sismo', capa: L.layerGroup().addTo(map) },
+            aire: { color: '#800080', icon: 'fa-wind', nombre: 'Calidad del Aire', capa: L.layerGroup().addTo(map) },
+            bloqueo: { color: '#000000', icon: 'fa-person-through-window', nombre: 'Bloqueo', capa: L.layerGroup().addTo(map) }
+        };
+
+        const filterPanel = L.control({position: 'topright'});
+        filterPanel.onAdd = function() {
+            const div = L.DomUtil.create('div', 'filter-panel');
+            div.innerHTML = '<strong>Filtros:</strong><br>';
+            Object.keys(categorias).forEach(key => {
+                const cat = categorias[key];
+                const label = L.DomUtil.create('label', 'filter-item', div);
+                const check = L.DomUtil.create('input', '', label);
+                check.type = 'checkbox'; check.checked = true;
+                check.onclick = function() { this.checked ? map.addLayer(cat.capa) : map.removeLayer(cat.capa); };
+                label.innerHTML += `<i class="fa-solid ${cat.icon}" style="color:${cat.color}; margin: 0 10px;"></i> ${cat.nombre}`;
+            });
+            return div;
+        };
+        filterPanel.addTo(map);
+
+        // Fetch data on load
+        fetchDashboardData();
+        fetchMapPoints();
+
+        // --- 4. Misc Logic ---
         const municipiosBolivia = {
             "La Paz": ["La Paz", "El Alto", "Viacha", "Copacabana", "Caranavi", "Coroico", "Achacachi", "Mecapaca", "Palca", "Patacamaya"],
-            "Santa Cruz": ["Santa Cruz de la Sierra", "Montero", "Warnes", "Cotoca", "Samaipata", "San Ignacio de Velasco", "Yapacaní", "Camiri"],
-            "Cochabamba": ["Cochabamba", "Quillacollo", "Sacaba", "Tiquipaya", "Villa Tunari", "Punata", "Cliza", "Colcapirhua"],
-            "Oruro": ["Oruro", "Huanuni", "Challapata", "Caracollo", "Machacamarca"],
-            "Potosí": ["Potosí", "Uyuni", "Tupiza", "Villazón", "Llallagua", "Uncía"],
-            "Chuquisaca": ["Sucre", "Tarabuco", "Monteagudo", "Camargo", "Padilla"],
-            "Tarija": ["Tarija", "Yacuiba", "Bermejo", "Villamontes", "San Lorenzo"],
-            "Beni": ["Trinidad", "Riberalta", "Guayaramerín", "Rurrenabaque", "San Borja"],
-            "Pando": ["Cobija", "Porvenir", "Filadelfia", "Puerto Rico"]
+            "Santa Cruz": ["Santa Cruz de la Sierra", "Montero", "Warnes", "Cotoca", "Samaipata", "San Ignacio de Velasco", "Yapacaní", "Camiri"]
         };
 
         const select = document.getElementById('municipio-select');
@@ -226,30 +332,26 @@
             select.appendChild(group);
         }
 
-        // 2. Lógica de alertas geolocalizadas
         const alertBanner = document.getElementById('alert-banner');
         const alertText = document.getElementById('alert-text');
-        const zonasConAlerta = ['cochabamba', 'la-paz', 'el-alto', 'santa-cruz-de-la-sierra'];
-
         select.addEventListener('change', (e) => {
-            if (zonasConAlerta.includes(e.target.value)) {
-                alertText.innerHTML = `Evento crítico detectado en la jurisdicción de <strong>${e.target.options[e.target.selectedIndex].text}</strong>.`;
-                alertBanner.style.display = 'flex';
-            } else {
-                alertBanner.style.display = 'none';
-            }
+            alertText.innerHTML = `Viendo datos para <strong>${e.target.options[e.target.selectedIndex].text}</strong>.`;
+            alertBanner.style.display = 'flex';
+            // In a real app, map.setView() would center on the selected municipality here
         });
 
-        // 3. Tema Claro/Oscuro
         document.getElementById('theme-btn').addEventListener('click', (e) => {
             const html = document.documentElement;
             const icon = e.currentTarget.querySelector('i');
-            if (html.getAttribute('data-theme') === 'light') {
-                html.setAttribute('data-theme', 'dark');
-                icon.className = 'ph ph-sun';
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            icon.className = isDark ? 'ph ph-moon' : 'ph ph-sun';
+            
+            // Adjust map colors for dark mode if needed
+            if (isDark) {
+                document.querySelector('.leaflet-layer').style.filter = "invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)";
             } else {
-                html.setAttribute('data-theme', 'light');
-                icon.className = 'ph ph-moon';
+                document.querySelector('.leaflet-layer').style.filter = "none";
             }
         });
     </script>

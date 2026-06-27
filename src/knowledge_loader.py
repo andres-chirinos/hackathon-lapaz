@@ -9,7 +9,6 @@ import os
 import glob
 import hashlib
 import chromadb
-import streamlit as st
 
 
 def _split_document(path: str) -> list[dict]:
@@ -76,7 +75,6 @@ def _split_document(path: str) -> list[dict]:
     return chunks
 
 
-@st.cache_resource
 def build_vector_store():
     """
     Build a ChromaDB collection from all OKF markdown files.

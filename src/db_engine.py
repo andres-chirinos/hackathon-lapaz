@@ -7,10 +7,7 @@ import os
 import yaml
 import json
 import glob
-import streamlit as st
 
-
-@st.cache_resource
 def get_connection():
     """Create a DuckDB in-memory connection with the spatial extension."""
     conn = duckdb.connect(':memory:')
@@ -19,7 +16,6 @@ def get_connection():
     return conn
 
 
-@st.cache_data
 def load_datapackages(_conn):
     """
     Discover all datapackages, register each resource as a DuckDB view,
