@@ -211,12 +211,25 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
 
         setLayers(prev => {
           const next = { ...prev };
+          // Ocultar las otras capas para enfocar la vista en el resultado de la IA
+          Object.keys(next).forEach(k => {
+            next[k].visible = false;
+          });
+
           aiPoints.forEach(p => {
-            if (!next[p.tipo]) next[p.tipo] = { color: p.color || '#9C27B0', icon: 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
+            if (!next[p.tipo]) {
+              next[p.tipo] = { color: p.color || '#9C27B0', icon: 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
+            } else {
+              next[p.tipo].visible = true; // Asegurar que sea visible
+            }
           });
           aiGeojsons.forEach(g => {
             const p = g.properties;
-            if (!next[p.tipo]) next[p.tipo] = { color: p.color || '#9C27B0', icon: 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
+            if (!next[p.tipo]) {
+              next[p.tipo] = { color: p.color || '#9C27B0', icon: 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
+            } else {
+              next[p.tipo].visible = true;
+            }
           });
           return next;
         });
