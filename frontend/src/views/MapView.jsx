@@ -125,7 +125,8 @@ const DEFAULT_LAYERS = {
 };
 
 export default function MapView({ dates, location, aiResult, municipioGeojson }) {
-  const [points, setPoints] = useState([]);
+  const [backendPoints, setBackendPoints] = useState([]);
+  const [aiPointsState, setAiPointsState] = useState([]);
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
   const [aiGeojson, setAiGeojson] = useState([]);
 
@@ -133,15 +134,17 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
     fetchMapPoints(dates.startDate, dates.endDate)
       .then(data => {
         if (data?.points) {
-          setPoints(data.points);
-          // Register dynamic AI layers
-          const newLayers = { ...DEFAULT_LAYERS };
-          data.points.forEach(p => {
-            if (!newLayers[p.tipo]) {
-              newLayers[p.tipo] = { color: p.color || '#9C27B0', icon: p.icon || 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
-            }
+          setBackendPoints(data.points);
+          // Register dynamic AI layers without wiping out existing ones
+          setLayers(prev => {
+            const next = { ...DEFAULT_LAYERS, ...prev };
+            data.points.forEach(p => {
+              if (!next[p.tipo]) {
+                next[p.tipo] = { color: p.color || '#9C27B0', icon: p.icon || 'fa-robot', nombre: p.tipo.toUpperCase(), visible: true };
+              }
+            });
+            return next;
           });
-          setLayers(newLayers);
         }
       })
       .catch(e => console.error("Error loading map points:", e));
@@ -154,6 +157,19 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
       const aiPoints = [];
       const aiGeojsons = [];
 
+      // Find min and max of value for color graduation
+      let minVal = Infinity;
+      let maxVal = -Infinity;
+      if (mapping.value) {
+        aiResult.data.forEach(d => {
+          const val = parseFloat(d[mapping.value]);
+          if (!isNaN(val)) {
+            if (val < minVal) minVal = val;
+            if (val > maxVal) maxVal = val;
+          }
+        });
+      }
+
       aiResult.data.forEach(d => {
         let desc = '';
         Object.keys(d).forEach(k => {
@@ -163,7 +179,19 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
         });
 
         const tipo = d[mapping.category] || d.tipo || 'ia_custom';
-        const color = d.color || '#9C27B0';
+        let color = d.color || '#9C27B0';
+        
+        // Apply color graduation if a value is mapped
+        if (mapping.value) {
+          const val = parseFloat(d[mapping.value]);
+          if (!isNaN(val) && maxVal > minVal) {
+            const ratio = (val - minVal) / (maxVal - minVal);
+            // Hue from 240 (blue) to 0 (red) for a heatmap look
+            const hue = Math.round(240 * (1 - ratio));
+            color = `hsl(${hue}, 100%, 50%)`;
+          }
+        }
+
         const icon = d.icon || 'fa-robot';
 
         // 1. Handle WKT Geometry if present
@@ -202,11 +230,11 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
       });
 
       if (aiPoints.length > 0 || aiGeojsons.length > 0) {
-        setPoints(prev => [...prev, ...aiPoints]);
+        setAiPointsState(aiPoints); // Overwrite AI points on new query, don't keep appending endlessly
         
-        // Save geojson data to state (need to create this state)
+        // Save geojson data to state
         if (aiGeojsons.length > 0) {
-           setAiGeojson(prev => [...prev, ...aiGeojsons]);
+           setAiGeojson(aiGeojsons); // Same here, replace rather than append for clean view switches
         }
 
         setLayers(prev => {
@@ -241,7 +269,8 @@ export default function MapView({ dates, location, aiResult, municipioGeojson })
     setLayers(prev => ({ ...prev, [key]: { ...prev[key], visible: !prev[key].visible } }));
   };
 
-  const visiblePoints = points.filter(p => layers[p.tipo]?.visible !== false);
+  const allPoints = [...backendPoints, ...aiPointsState];
+  const visiblePoints = allPoints.filter(p => layers[p.tipo]?.visible !== false);
 
   return (
     <div className="map-container-wrapper">
