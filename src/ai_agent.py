@@ -9,6 +9,7 @@ Uses Gemini with function calling for tool use.
 from google import genai
 from google.genai import types
 import json
+import os
 
 
 class MockST:
@@ -116,7 +117,7 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         """
 
         chat1 = client.chats.create(
-            model="gemini-2.5-flash", config=config)
+            model=os.environ.get("GOOGLE_AI_MODEL", "gemini-2.5-flash"), config=config)
         resp1 = chat1.send_message(phase1_prompt)
 
         try:
@@ -194,7 +195,7 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         """
 
         chat2 = client.chats.create(
-            model="gemini-2.5-flash", config=config)
+            model=os.environ.get("GOOGLE_AI_MODEL", "gemini-2.5-flash"), config=config)
 
         max_retries = 3
         final_sql = ""
@@ -296,7 +297,7 @@ def run_agent(nl_query: str, db_schema: str, knowledge_collection, conn, api_key
         """
 
         chat3 = client.chats.create(
-            model="gemini-2.5-flash", config=config)
+            model=os.environ.get("GOOGLE_AI_MODEL", "gemini-2.5-flash"), config=config)
         resp3 = chat3.send_message(phase3_prompt)
 
         try:
